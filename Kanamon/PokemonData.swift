@@ -31,7 +31,7 @@ struct PersistenceController {
 
       let configuration = ModelConfiguration(isStoredInMemoryOnly: isStoredInMemoryOnly)
       container = try ModelContainer(
-        for: PokemonCacheEntry.self,
+        for: PokemonCacheEntry.self, CaughtPokemon.self,
         configurations: configuration
       )
     } catch {
