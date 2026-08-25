@@ -75,15 +75,18 @@ final class PokemonRepository {
   private let modelContext: ModelContext
   private let dataSource: any PokemonDataSource
   private let pokemonIDs: [Int]
+  private let maximumConcurrentRequests: Int
 
   init(
     modelContext: ModelContext,
     dataSource: any PokemonDataSource = PokeAPIClient(),
-    pokemonIDs: [Int] = Array(1...151)
+    pokemonIDs: [Int] = Array(1...151),
+    maximumConcurrentRequests: Int = 8
   ) {
     self.modelContext = modelContext
     self.dataSource = dataSource
     self.pokemonIDs = pokemonIDs
+    self.maximumConcurrentRequests = max(1, maximumConcurrentRequests)
   }
 
   func loadFirstGeneration() async throws -> [Pokemon] {
@@ -101,24 +104,36 @@ final class PokemonRepository {
     }
 
     let missingIDs = pokemonIDs.filter { pokemonByID[$0] == nil }
-    var fetchedPokemon: [Pokemon] = []
-    fetchedPokemon.reserveCapacity(missingIDs.count)
-
-    for id in missingIDs {
-      let pokemon = try await dataSource.fetchPokemon(id: id)
-      guard pokemon.id == id else {
-        throw PokemonRepositoryError.unexpectedPokemonID(expected: id, actual: pokemon.id)
+    let dataSource = self.dataSource
+    var missingIDIterator = missingIDs.makeIterator()
+    try await withThrowingTaskGroup(of: (expectedID: Int, pokemon: Pokemon).self) { group in
+      for _ in 0..<min(maximumConcurrentRequests, missingIDs.count) {
+        guard let id = missingIDIterator.next() else {
+          break
+        }
+        group.addTask {
+          (id, try await dataSource.fetchPokemon(id: id))
+        }
       }
-      fetchedPokemon.append(pokemon)
-    }
 
-    for pokemon in fetchedPokemon {
-      modelContext.insert(PokemonCacheEntry(pokemon: pokemon))
-      pokemonByID[pokemon.id] = pokemon
-    }
+      while let result = try await group.next() {
+        guard result.pokemon.id == result.expectedID else {
+          throw PokemonRepositoryError.unexpectedPokemonID(
+            expected: result.expectedID,
+            actual: result.pokemon.id
+          )
+        }
 
-    if !fetchedPokemon.isEmpty {
-      try modelContext.save()
+        modelContext.insert(PokemonCacheEntry(pokemon: result.pokemon))
+        pokemonByID[result.pokemon.id] = result.pokemon
+        try modelContext.save()
+
+        if let id = missingIDIterator.next() {
+          group.addTask {
+            (id, try await dataSource.fetchPokemon(id: id))
+          }
+        }
+      }
     }
 
     return pokemonIDs.compactMap { pokemonByID[$0] }

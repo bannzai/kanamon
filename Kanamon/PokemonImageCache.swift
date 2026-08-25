@@ -23,6 +23,7 @@ actor PokemonImageCache {
   private let fileManager: FileManager
   private let cacheDirectory: URL
   private let dataLoader: any HTTPDataLoading
+  private var downloadTasks: [Int: Task<Data, Error>] = [:]
 
   init(
     fileManager: FileManager = .default,
@@ -48,6 +49,19 @@ actor PokemonImageCache {
       return try Data(contentsOf: fileURL)
     }
 
+    if let downloadTask = downloadTasks[pokemon.id] {
+      return try await downloadTask.value
+    }
+
+    let downloadTask = Task {
+      try await downloadAndStoreImage(for: pokemon, at: fileURL)
+    }
+    downloadTasks[pokemon.id] = downloadTask
+    defer { downloadTasks[pokemon.id] = nil }
+    return try await downloadTask.value
+  }
+
+  private func downloadAndStoreImage(for pokemon: Pokemon, at fileURL: URL) async throws -> Data {
     let (data, response) = try await dataLoader.data(from: pokemon.spriteURL)
     guard let httpResponse = response as? HTTPURLResponse else {
       throw PokemonImageCacheError.invalidResponse
