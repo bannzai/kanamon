@@ -8,6 +8,7 @@ struct HomeMenuItem: Identifiable {
   /// ボタンに表示する名前。子どもが読めるようにひらがな・カタカナだけで書く。
   let title: String
   let systemImage: String
+  /// ボタンの背景色。白文字とのコントラスト比を 4.5:1 以上にする (`HomeViewTests` で検証する)。
   let tint: Color
 
   var id: AppDestination { destination }
@@ -18,15 +19,15 @@ struct HomeMenuItem: Identifiable {
     case .zukan:
       title = "ずかん"
       systemImage = "book.fill"
-      tint = Color(red: 0.15, green: 0.65, blue: 0.42)
+      tint = Color(red: 0.08, green: 0.46, blue: 0.30)
     case .yomiRenshu:
       title = "よみれんしゅう"
       systemImage = "speaker.wave.3.fill"
-      tint = Color(red: 0.95, green: 0.55, blue: 0.10)
+      tint = Color(red: 0.72, green: 0.35, blue: 0.02)
     case .quiz:
       title = "クイズ"
       systemImage = "star.fill"
-      tint = Color(red: 0.36, green: 0.42, blue: 0.90)
+      tint = Color(red: 0.33, green: 0.38, blue: 0.86)
     }
   }
 
