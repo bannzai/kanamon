@@ -155,6 +155,10 @@ struct PokemonSpriteView: View {
 
   @State private var spriteImage: UIImage?
 
+  /// スプライト取得をあきらめるまでの試行回数。
+  /// 一時的な通信障害で 1 回失敗しただけのセルが、次にセルが作り直されるまで空欄のまま残るのを防ぐ
+  private static let maximumAttempts = 5
+
   var body: some View {
     Group {
       if let spriteImage {
@@ -169,11 +173,30 @@ struct PokemonSpriteView: View {
       }
     }
     .task(id: pokemon.id) {
-      guard let imageCache, let data = try? await imageCache.imageData(for: pokemon) else {
+      await loadSprite()
+    }
+  }
+
+  private func loadSprite() async {
+    guard let imageCache else {
+      return
+    }
+
+    for attempt in 0..<Self.maximumAttempts {
+      if attempt > 0 {
+        // 通信の復旧を待つため、失敗するたびに間隔を倍にする (1・2・4・8 秒)
+        try? await Task.sleep(for: .seconds(1 << (attempt - 1)))
+      }
+      if Task.isCancelled {
         return
       }
 
-      spriteImage = UIImage(data: data)
+      if let data = try? await imageCache.imageData(for: pokemon),
+        let image = UIImage(data: data)
+      {
+        spriteImage = image
+        return
+      }
     }
   }
 }
