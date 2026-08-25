@@ -14,6 +14,10 @@
 		100000000000000000000004 /* PokemonImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* PokemonImageCache.swift */; };
 		100000000000000000000005 /* PokemonDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* PokemonDataTests.swift */; };
 		100000000000000000000006 /* CaughtPokemon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* CaughtPokemon.swift */; };
+		100000000000000000000007 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* DebugMenuView.swift */; };
+		100000000000000000000008 /* PokedexModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* PokedexModel.swift */; };
+		100000000000000000000009 /* PokedexView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* PokedexView.swift */; };
+		100000000000000000000010 /* PokedexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* PokedexTests.swift */; };
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
@@ -37,6 +41,10 @@
 		200000000000000000000004 /* PokemonImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonImageCache.swift; sourceTree = "<group>"; };
 		200000000000000000000005 /* PokemonDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonDataTests.swift; sourceTree = "<group>"; };
 		200000000000000000000006 /* CaughtPokemon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaughtPokemon.swift; sourceTree = "<group>"; };
+		200000000000000000000007 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
+		200000000000000000000008 /* PokedexModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokedexModel.swift; sourceTree = "<group>"; };
+		200000000000000000000009 /* PokedexView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokedexView.swift; sourceTree = "<group>"; };
+		200000000000000000000010 /* PokedexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokedexTests.swift; sourceTree = "<group>"; };
 		29E985B158F0B7ADD8C5F040 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5D917AA35E42ED26847B6BB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
@@ -69,7 +77,10 @@
 				5D917AA35E42ED26847B6BB0 /* Assets.xcassets */,
 				29E985B158F0B7ADD8C5F040 /* ContentView.swift */,
 				200000000000000000000006 /* CaughtPokemon.swift */,
+				200000000000000000000007 /* DebugMenuView.swift */,
 				200000000000000000000001 /* KatakanaConverter.swift */,
+				200000000000000000000008 /* PokedexModel.swift */,
+				200000000000000000000009 /* PokedexView.swift */,
 				68710977607E0CDF1AED0580 /* KanamonApp.swift */,
 				200000000000000000000002 /* PokeAPIClient.swift */,
 				200000000000000000000003 /* PokemonData.swift */,
@@ -82,6 +93,7 @@
 			isa = PBXGroup;
 			children = (
 				D58492E064E64E689038BCB2 /* KanamonTests.swift */,
+				200000000000000000000010 /* PokedexTests.swift */,
 				200000000000000000000005 /* PokemonDataTests.swift */,
 			);
 			path = KanamonTests;
@@ -181,6 +193,7 @@
 			files = (
 				779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */,
 				100000000000000000000005 /* PokemonDataTests.swift in Sources */,
+				100000000000000000000010 /* PokedexTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +208,9 @@
 				100000000000000000000003 /* PokemonData.swift in Sources */,
 				100000000000000000000004 /* PokemonImageCache.swift in Sources */,
 				100000000000000000000006 /* CaughtPokemon.swift in Sources */,
+				100000000000000000000007 /* DebugMenuView.swift in Sources */,
+				100000000000000000000008 /* PokedexModel.swift in Sources */,
+				100000000000000000000009 /* PokedexView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
