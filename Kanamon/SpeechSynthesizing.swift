@@ -8,6 +8,18 @@ protocol SpeechSynthesizing: AnyObject {
   func stop()
 }
 
+/// `AVSpeechSynthesizer` のうち、この読み上げが使う操作。
+///
+/// ユニットテストが実機の音声合成 (CI の runner では音声が出ずに `speak` が返らない) に触れないよう、差し替え可能にする。
+protocol UtteranceSpeaking: AnyObject {
+  var delegate: (any AVSpeechSynthesizerDelegate)? { get set }
+  func speak(_ utterance: AVSpeechUtterance)
+  @discardableResult
+  func stopSpeaking(at boundary: AVSpeechBoundary) -> Bool
+}
+
+extension AVSpeechSynthesizer: UtteranceSpeaking {}
+
 /// `AVSpeechSynthesizer` で日本語を読み上げる。
 ///
 /// 読み上げ中に解放されると発話が止まるため、`AVSpeechSynthesizer` はプロパティとして保持し続ける。
@@ -27,7 +39,9 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
 
   /// `AVSpeechSynthesizerDelegate` が Sendable を要求する一方 `AVSpeechSynthesizer` は Sendable ではないため、
   /// 受け渡しの安全性はこのクラスの lock で担保していることを nonisolated(unsafe) で明示する。
-  nonisolated(unsafe) private let synthesizer = AVSpeechSynthesizer()
+  nonisolated(unsafe) private let synthesizer: any UtteranceSpeaking
+  /// 発話の前に、別の画面が積んだ読み上げを止める処理。クイズ・なまえづくりは別の `AVSpeechSynthesizer` にキューを積むため。
+  private let stopOtherSpeech: @MainActor () -> Void
   /// 読み終わりの通知が発話とは別のスレッドで届くため、リクエストの受け渡しを直列化する。
   ///
   /// `stopSpeaking` が同じスレッドで同期的に届ける `didCancel` から `finishSpeaking` に入るため、
@@ -42,7 +56,15 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   private static let pitchMultiplier: Float = 1.15
   private static let languageCode = "ja-JP"
 
-  override init() {
+  /// - Parameters:
+  ///   - synthesizer: 実際に音を出す合成器。省略時は `AVSpeechSynthesizer`。テストではフェイクを渡す
+  ///   - stopOtherSpeech: 発話前に他画面の読み上げを止める処理。省略時は `SpeechSynthesizer.shared.stop()`
+  init(
+    synthesizer: any UtteranceSpeaking = AVSpeechSynthesizer(),
+    stopOtherSpeech: @escaping @MainActor () -> Void = { SpeechSynthesizer.shared.stop() }
+  ) {
+    self.synthesizer = synthesizer
+    self.stopOtherSpeech = stopOtherSpeech
     super.init()
     synthesizer.delegate = self
   }
@@ -56,8 +78,8 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     // クイズ側の停止を待つ間に stop() が呼ばれたら、その後で発話を始めないよう、待つ前の停止回数を控える
     let stopCountBeforeSuspension = currentStopCount()
 
-    // クイズ画面は別の `AVSpeechSynthesizer` にキューを積むため、こちらの発話に重ならないよう先に止める
-    await MainActor.run { SpeechSynthesizer.shared.stop() }
+    // 別の画面が積んだ読み上げがこちらの発話に重ならないよう先に止める
+    await stopOtherSpeech()
 
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
       // 取り外しから登録までを 1 度の lock 区間で行い、並行して呼ばれた時に
@@ -157,18 +179,25 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   }
 }
 
+extension JapaneseSpeechSynthesizer {
+  /// 合成器から発話の読み終わり・中断が届いた時の入口。delegate とテストのフェイクの両方から呼ぶ。
+  func utteranceDidEnd(_ utterance: AVSpeechUtterance) {
+    finishSpeaking { $0.utterance === utterance }
+  }
+}
+
 extension JapaneseSpeechSynthesizer: AVSpeechSynthesizerDelegate {
   func speechSynthesizer(
     _ synthesizer: AVSpeechSynthesizer,
     didFinish utterance: AVSpeechUtterance
   ) {
-    finishSpeaking { $0.utterance === utterance }
+    utteranceDidEnd(utterance)
   }
 
   func speechSynthesizer(
     _ synthesizer: AVSpeechSynthesizer,
     didCancel utterance: AVSpeechUtterance
   ) {
-    finishSpeaking { $0.utterance === utterance }
+    utteranceDidEnd(utterance)
   }
 }

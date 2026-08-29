@@ -1,77 +1,159 @@
+import AVFoundation
 import Foundation
 import XCTest
 
 @testable import Kanamon
 
-/// `JapaneseSpeechSynthesizer` を並行して呼んでも、待たせた呼び出し元が残らないことを確かめる。
+/// `JapaneseSpeechSynthesizer` の待ち合わせを、実機の音声合成に触れずに確かめる。
 ///
-/// simulator では音声が鳴らず読み終わりの通知が届かないことがあるため、時間切れの保険で返る場合も含めて見る。
+/// CI の runner では音声が出ず `AVSpeechSynthesizer.speak` が返らないため、合成器はフェイクに差し替える。
 final class SpeechSynthesizingTests: XCTestCase {
-  /// 待ちが残った時にテストごと止まらないための上限。1 文字の時間切れの保険 (1.7 秒) より十分長くする
-  private static let returnTimeoutSeconds: TimeInterval = 10
-  /// 中断で返ったことを、時間切れの保険 (20 文字で 15 秒) で返った場合と見分けるための上限
-  private static let stopReturnSeconds: TimeInterval = 5
   /// 1 音をはっきり読ませる `YomiRenshuModel` と同じ速さ。
   private static let rate: Float = 0.4
+  /// テストが待ちに入ってから合成器の呼び出しを観測するまでの上限。ローカル・CI ともに数 ms で済む処理のため短くてよい
+  private static let observeTimeoutSeconds: TimeInterval = 3
 
+  /// 同時に呼んだ speak は、合成器が読み終わりを返せば 2 つとも返る。
   func testConcurrentSpeakCallsBothReturn() async {
-    let synthesizer = JapaneseSpeechSynthesizer()
-    let bothReturned = expectation(description: "同時に呼んだ speak が 2 つとも返る")
-
-    Task {
-      await withTaskGroup(of: Void.self) { group in
-        group.addTask { await synthesizer.speak(text: "ア", rate: Self.rate) }
-        group.addTask { await synthesizer.speak(text: "ア", rate: Self.rate) }
-      }
-      bothReturned.fulfill()
+    let speaker = UtteranceSpeakerFake()
+    let synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: {})
+    speaker.endsUtteranceImmediately = { [weak synthesizer] utterance in
+      synthesizer?.utteranceDidEnd(utterance)
     }
 
-    await fulfillment(of: [bothReturned], timeout: Self.returnTimeoutSeconds)
+    await withTaskGroup(of: Void.self) { group in
+      group.addTask { await synthesizer.speak(text: "ア", rate: Self.rate) }
+      group.addTask { await synthesizer.speak(text: "イ", rate: Self.rate) }
+    }
+
+    XCTAssertEqual(speaker.spokenTexts.sorted(), ["ア", "イ"])
   }
 
-  /// speak がクイズ側の停止を待っている間に stop() されたら、その後で発話を始めずに返る。
+  /// 読み終わりが届かない発話も、stop() で待たせている呼び出し元が返る。
+  func testStopReturnsWaitingSpeak() async {
+    let speaker = UtteranceSpeakerFake()
+    let synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: {})
+
+    let speaking = Task { await synthesizer.speak(text: "アイウ", rate: Self.rate) }
+    await waitUntil(message: "発話が合成器に渡らなかった") { speaker.spokenTexts.count == 1 }
+
+    let stopCountBeforeStop = speaker.stopCount
+    synthesizer.stop()
+    await speaking.value
+
+    XCTAssertEqual(speaker.stopCount, stopCountBeforeStop + 1)
+  }
+
+  /// speak が他画面の停止を待っている間に stop() されたら、その後で発話を始めずに返る。
   func testStopWhileSpeakIsSuspendedPreventsLateStart() async {
-    let synthesizer = JapaneseSpeechSynthesizer()
-    // 時間切れの保険が 15 秒になる長さ。発話が始まってしまった場合は保険まで返らないため、所要時間で見分ける
-    let text = String(repeating: "ア", count: 20)
-    let startedDate = Date()
+    let speaker = UtteranceSpeakerFake()
+    var synthesizer: JapaneseSpeechSynthesizer!
+    // 他画面の停止 (speak の待ち合わせ中) のタイミングで、この読み上げ自身の stop() を呼ぶ
+    synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: { synthesizer.stop() })
 
-    await withTaskGroup(of: Void.self) { group in
-      group.addTask { await synthesizer.speak(text: text, rate: Self.rate) }
-      // speak が MainActor.run で中断している最中を狙って止める。登録後に止まった場合も speak は即座に返る
-      group.addTask {
-        for _ in 0..<50 {
-          synthesizer.stop()
-          try? await Task.sleep(for: .milliseconds(2))
-        }
-      }
-    }
+    await synthesizer.speak(text: "ア", rate: Self.rate)
 
-    XCTAssertLessThan(Date().timeIntervalSince(startedDate), Self.stopReturnSeconds)
+    XCTAssertTrue(speaker.spokenTexts.isEmpty, "stop() の後で発話が始まっている")
   }
 
-  /// 発話中に中断したら、時間切れの保険を待たずに speak が返る。
-  func testStopReturnsWaitingSpeakBeforeTimeout() async {
-    let synthesizer = JapaneseSpeechSynthesizer()
-    // 時間切れの保険が 15 秒になる長さ。中断で返ったのか保険で返ったのかを所要時間で見分けられるようにする
-    let text = String(repeating: "ア", count: 20)
-    let startedDate = Date()
+  /// 前の発話が読み終わらないまま次の speak が来たら、前の呼び出し元を返してから次を読む。
+  func testNextSpeakReplacesPendingOne() async {
+    let speaker = UtteranceSpeakerFake()
+    let synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: {})
 
-    await withTaskGroup(of: Void.self) { group in
-      group.addTask { await synthesizer.speak(text: text, rate: Self.rate) }
-      group.addTask {
-        // speak が発話を登録し終える前の中断は空振りするため、speak が返るまで呼び直す
-        while !Task.isCancelled {
-          synthesizer.stop()
-          try? await Task.sleep(for: .milliseconds(20))
-        }
-      }
+    let first = Task { await synthesizer.speak(text: "ア", rate: Self.rate) }
+    await waitUntil(message: "1 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 1 }
+    let second = Task { await synthesizer.speak(text: "イ", rate: Self.rate) }
+    await waitUntil(message: "2 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 2 }
 
-      // 中断を呼び直す側は取り消されるまで終わらないため、先に終わるのは speak
-      await group.next()
-      group.cancelAll()
+    await first.value
+    XCTAssertEqual(speaker.spokenTexts, ["ア", "イ"])
+
+    // 2 つ目は読み終わりを返して片付ける
+    speaker.spokenUtterances.last.map { synthesizer.utteranceDidEnd($0) }
+    await second.value
+  }
+
+  /// 古い発話の読み終わりが遅れて届いても、次の発話を終わらせない。
+  func testStaleUtteranceEndDoesNotFinishNextSpeak() async {
+    let speaker = UtteranceSpeakerFake()
+    let synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: {})
+
+    let first = Task { await synthesizer.speak(text: "ア", rate: Self.rate) }
+    await waitUntil(message: "1 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 1 }
+    let staleUtterance = speaker.spokenUtterances[0]
+    let second = Task { await synthesizer.speak(text: "イ", rate: Self.rate) }
+    await waitUntil(message: "2 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 2 }
+    await first.value
+
+    synthesizer.utteranceDidEnd(staleUtterance)
+    var secondFinished = false
+    let observer = Task {
+      await second.value
+      secondFinished = true
     }
+    // 古い通知で 2 つ目が終わっていないことを、少し待ってから確かめる (即座に終わる場合はここで観測できる)
+    try? await Task.sleep(for: .milliseconds(100))
+    XCTAssertFalse(secondFinished, "古い発話の読み終わりで次の発話が終わっている")
 
-    XCTAssertLessThan(Date().timeIntervalSince(startedDate), Self.stopReturnSeconds)
+    synthesizer.utteranceDidEnd(speaker.spokenUtterances[1])
+    await observer.value
+    XCTAssertTrue(secondFinished)
+  }
+
+  private func waitUntil(
+    message: String,
+    condition: @escaping () -> Bool
+  ) async {
+    let deadline = Date().addingTimeInterval(Self.observeTimeoutSeconds)
+    while !condition() {
+      if Date() > deadline {
+        XCTFail(message)
+        return
+      }
+      try? await Task.sleep(for: .milliseconds(5))
+    }
+  }
+}
+
+/// 音を出さずに、渡された発話と停止の回数を記録するだけの合成器。
+private final class UtteranceSpeakerFake: UtteranceSpeaking, @unchecked Sendable {
+  private let lock = NSLock()
+  private var _spokenUtterances: [AVSpeechUtterance] = []
+  private var _stopCount = 0
+
+  weak var delegate: (any AVSpeechSynthesizerDelegate)?
+  /// 設定すると、発話を受け取った直後にその発話の読み終わりを返す。
+  var endsUtteranceImmediately: ((AVSpeechUtterance) -> Void)?
+
+  var spokenUtterances: [AVSpeechUtterance] {
+    lock.lock()
+    defer { lock.unlock() }
+    return _spokenUtterances
+  }
+
+  var spokenTexts: [String] {
+    spokenUtterances.map(\.speechString)
+  }
+
+  var stopCount: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return _stopCount
+  }
+
+  func speak(_ utterance: AVSpeechUtterance) {
+    lock.lock()
+    _spokenUtterances.append(utterance)
+    lock.unlock()
+    endsUtteranceImmediately?(utterance)
+  }
+
+  @discardableResult
+  func stopSpeaking(at boundary: AVSpeechBoundary) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    _stopCount += 1
+    return true
   }
 }
