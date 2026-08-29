@@ -157,7 +157,9 @@ struct HomeView: View {
           QuizView()
         case .kakiRenshu:
           KakiRenshuView()
-        case .yomiRenshu, .namaeZukuri, .mojiZukan:
+        case .namaeZukuri:
+          NameBuilderView()
+        case .yomiRenshu, .mojiZukan:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
