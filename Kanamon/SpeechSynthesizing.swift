@@ -12,6 +12,10 @@ protocol SpeechSynthesizing: AnyObject {
 ///
 /// 読み上げ中に解放されると発話が止まるため、`AVSpeechSynthesizer` はプロパティとして保持し続ける。
 final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
+  /// 画面をまたいで 1 つの `AVSpeechSynthesizer` から読み上げる。
+  /// インスタンスごとに `AVSpeechSynthesizer` を持つと、別の画面の発話と重なって鳴るため。
+  static let shared = JapaneseSpeechSynthesizer()
+
   /// 待たせている 1 回分の読み上げ。読み終わりの通知・時間切れが、どの発話に対するものかを見分けるために持つ。
   private struct SpeakingRequest {
     /// 発話を始めた順の通し番号。時間切れの Task が自分の発話かどうかを確かめるのに使う。
@@ -25,7 +29,10 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   /// 受け渡しの安全性はこのクラスの lock で担保していることを nonisolated(unsafe) で明示する。
   nonisolated(unsafe) private let synthesizer = AVSpeechSynthesizer()
   /// 読み終わりの通知が発話とは別のスレッドで届くため、リクエストの受け渡しを直列化する。
-  private let lock = NSLock()
+  ///
+  /// `stopSpeaking` が同じスレッドで同期的に届ける `didCancel` から `finishSpeaking` に入るため、
+  /// 取り外しから登録までを 1 度の lock 区間にできるよう再帰ロックにする。
+  private let lock = NSRecursiveLock()
   private var currentRequest: SpeakingRequest?
   private var generationCounter = 0
 
@@ -44,26 +51,28 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     utterance.rate = rate
     utterance.pitchMultiplier = Self.pitchMultiplier
 
-    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-      // 前の発話を先に終わらせてから登録することで、遅れて届く didCancel や時間切れが新しい発話に効かないようにする
-      stopCurrentSpeaking()
+    // クイズ画面は別の `AVSpeechSynthesizer` にキューを積むため、こちらの発話に重ならないよう先に止める
+    await MainActor.run { SpeechSynthesizer.shared.stop() }
 
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      // 取り外しから登録までを 1 度の lock 区間で行い、並行して呼ばれた時に
+      // currentRequest が上書きされて前の continuation が残らないようにする
       lock.lock()
+      let previousRequest = detachCurrentRequestWithLockHeld()
       generationCounter += 1
       let generation = generationCounter
-      lock.unlock()
-
-      let timeoutTask = makeTimeoutTask(generation: generation, characterCount: text.count)
-      lock.lock()
       currentRequest = SpeakingRequest(
         generation: generation,
         utterance: utterance,
         continuation: continuation,
-        timeoutTask: timeoutTask
+        timeoutTask: makeTimeoutTask(generation: generation, characterCount: text.count)
       )
+      synthesizer.speak(utterance)
       lock.unlock()
 
-      synthesizer.speak(utterance)
+      // 待たせていた呼び出し元を返すのは、その先の処理が lock 区間に入ってこないよう lock を出てから行う
+      previousRequest?.timeoutTask.cancel()
+      previousRequest?.continuation.resume()
     }
   }
 
@@ -93,14 +102,24 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   /// 進行中の発話を止めて、待っている呼び出し元を返す。発話していない時に呼んでも何も起きない。
   private func stopCurrentSpeaking() {
     lock.lock()
-    let request = currentRequest
-    currentRequest = nil
+    let request = detachCurrentRequestWithLockHeld()
     lock.unlock()
 
-    // 取り外してから止めることで、stopSpeaking が同期で届ける didCancel が次の発話に効かないようにする
-    synthesizer.stopSpeaking(at: .immediate)
     request?.timeoutTask.cancel()
     request?.continuation.resume()
+  }
+
+  /// 進行中の発話を取り外して止め、待たせている リクエスト を返す。
+  ///
+  /// `lock` を保持したまま呼ぶ。返したリクエストの後始末 (時間切れの取り消しと continuation の再開) は
+  /// 呼び出し元が lock を出てから行う。
+  private func detachCurrentRequestWithLockHeld() -> SpeakingRequest? {
+    let request = currentRequest
+    currentRequest = nil
+    // 取り外してから止めることで、stopSpeaking が同期で届ける didCancel が次の発話に効かないようにする
+    synthesizer.stopSpeaking(at: .immediate)
+
+    return request
   }
 
   /// 読み終わり・時間切れのどちらから呼ばれても 1 回だけ continuation を再開する。

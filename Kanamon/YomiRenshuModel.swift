@@ -49,8 +49,9 @@ final class YomiRenshuModel {
   private let sleep: @Sendable (Duration) async -> Void
   private let initialPokemonID: Int?
   private var playbackTask: Task<Void, Never>?
-  /// タップを受けた順の通し番号。読み終わりを待つ間に次のタップが来たかを見分けるのに使う。
-  private var tapGeneration = 0
+  /// タップ・ぜんぶ よむ・中断・送りを受けた順の通し番号。
+  /// タップが読み終わりを待つ間に次の操作が始まったかを見分けるのに使う。
+  private var interactionGeneration = 0
 
   /// 1 音をはっきり聞かせるため、`AVSpeechUtterance` の既定 (0.5) より遅くする。
   private static let singleCharacterRate: Float = 0.4
@@ -78,7 +79,8 @@ final class YomiRenshuModel {
     self.initialPokemonID = initialPokemonID
     self.repository = repository ?? PokemonRepository(modelContext: modelContext)
     self.learningProgressStore = learningProgressStore ?? LearningProgressStore(modelContext: modelContext)
-    self.speechSynthesizer = speechSynthesizer ?? JapaneseSpeechSynthesizer()
+    // クイズ画面と同じく画面をまたいで 1 つの読み上げを共有し、前の画面の発話が残らないようにする
+    self.speechSynthesizer = speechSynthesizer ?? JapaneseSpeechSynthesizer.shared
     self.imageCache = imageCache ?? (try? PokemonImageCache())
     self.sleep = sleep
   }
@@ -130,6 +132,7 @@ final class YomiRenshuModel {
     }
 
     isPlaying = true
+    interactionGeneration += 1
     tipText = nil
     let playbackTask = Task { await self.playAllCharacters() }
     self.playbackTask = playbackTask
@@ -138,6 +141,7 @@ final class YomiRenshuModel {
 
   /// 再生を中断してハイライトを消す。再生していない時に呼んでも何も起きない。
   func stop() {
+    interactionGeneration += 1
     playbackTask?.cancel()
     playbackTask = nil
     speechSynthesizer.stop()
@@ -152,8 +156,7 @@ final class YomiRenshuModel {
     }
 
     stop()
-    tapGeneration += 1
-    let generation = tapGeneration
+    let generation = interactionGeneration
     tipText = SimilarKatakana.tip(character: character.katakana)
     highlightedIndices = [index]
     markRead(katakana: character.katakana)
@@ -163,7 +166,7 @@ final class YomiRenshuModel {
     await highlightTask.value
 
     // 待っている間に次のタップや ぜんぶ よむ が始まっていたら、そちらのハイライトを消さない
-    if generation == tapGeneration, highlightedIndices == [index] {
+    if generation == interactionGeneration, highlightedIndices == [index] {
       highlightedIndices = []
     }
   }

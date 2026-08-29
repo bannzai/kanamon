@@ -38,6 +38,7 @@
 		B27E4D1F6C35029A9F4B2207 /* YomiRenshuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1107 /* YomiRenshuModel.swift */; };
 		B27E4D1F6C35029A9F4B2208 /* YomiRenshuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1108 /* YomiRenshuView.swift */; };
 		B27E4D1F6C35029A9F4B2209 /* YomiRenshuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */; };
+		3F1C7A0D2E64B58A91D40C77 /* SpeechSynthesizingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9E2B613D07C4F28E15A0B4 /* SpeechSynthesizingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 		A17D3C0E5B24F1908E3A1107 /* YomiRenshuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuModel.swift; sourceTree = "<group>"; };
 		A17D3C0E5B24F1908E3A1108 /* YomiRenshuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuView.swift; sourceTree = "<group>"; };
 		A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuTests.swift; sourceTree = "<group>"; };
+		5A9E2B613D07C4F28E15A0B4 /* SpeechSynthesizingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -145,6 +147,7 @@
 				200000000000000000000005 /* PokemonDataTests.swift */,
 				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
 				A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */,
+				5A9E2B613D07C4F28E15A0B4 /* SpeechSynthesizingTests.swift */,
 				400000000000000000000006 /* QuizTests.swift */,
 			);
 			path = KanamonTests;
@@ -246,6 +249,7 @@
 				100000000000000000000005 /* PokemonDataTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2209 /* YomiRenshuTests.swift in Sources */,
+				3F1C7A0D2E64B58A91D40C77 /* SpeechSynthesizingTests.swift in Sources */,
 				100000000000000000000014 /* PokedexTests.swift in Sources */,
 				300000000000000000000006 /* QuizTests.swift in Sources */,
 			);

@@ -18,4 +18,9 @@ final class SpeechSynthesizer {
     utterance.rate = rate
     synthesizer.speak(utterance)
   }
+
+  /// 読み上げ中・キュー待ちの発話をすべて止める。よみれんしゅう が読み始める時に重ならないようにするために使う。
+  func stop() {
+    synthesizer.stopSpeaking(at: .immediate)
+  }
 }

@@ -36,6 +36,8 @@ struct YomiRenshuView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
   @State private var model: YomiRenshuModel? = nil
+  /// 「もういちど」で増やし、`.task(id:)` に読み込みをやり直させる。画面が消えれば読み込みごとキャンセルされる
+  @State private var loadRequestCount = 0
 
   /// 送りと判定する指の横移動の下限。縦スクロールのつもりの指を送りと誤認しない大きさにする。
   private static let swipeHorizontalDistance: CGFloat = 56
@@ -67,7 +69,7 @@ struct YomiRenshuView: View {
       .onDisappear {
         model?.stop()
       }
-      .task {
+      .task(id: loadRequestCount) {
         let model =
           self.model
           ?? YomiRenshuModel(modelContext: modelContext, initialPokemonID: initialPokemonID)
@@ -83,7 +85,7 @@ struct YomiRenshuView: View {
       case .loading:
         loading
       case .failed:
-        failed(model: model)
+        failed
       case .loaded:
         loaded(model: model)
       }
@@ -105,7 +107,7 @@ struct YomiRenshuView: View {
     .padding(20)
   }
 
-  private func failed(model: YomiRenshuModel) -> some View {
+  private var failed: some View {
     VStack(spacing: 24) {
       header(pokemon: nil)
       Spacer()
@@ -113,7 +115,7 @@ struct YomiRenshuView: View {
         .font(.system(size: 26, weight: .heavy, design: .rounded))
         .foregroundStyle(YomiRenshuPalette.ink)
       Button {
-        Task { await model.load() }
+        loadRequestCount += 1
       } label: {
         Text(YomiRenshuText.retry)
           .font(.system(size: 30, weight: .heavy, design: .rounded))
@@ -363,6 +365,8 @@ private struct PokemonSpriteCard: View {
       if let pokemon {
         // よみれんしゅう は ゲット の有無で見た目を変えないため、常にカラーで見せる
         PokemonSpriteView(pokemon: pokemon, isCaught: true, imageCache: imageCache)
+          // 送りで別のポケモンに変わったら、前の画像を保持した @State ごと作り直す
+          .id(pokemon.id)
           .padding(10)
       } else {
         ProgressView()

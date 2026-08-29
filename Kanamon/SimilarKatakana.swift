@@ -31,8 +31,8 @@ enum SimilarKatakana {
       second: SimilarKatakanaEntry(character: "ケ", description: "ケ は よこぼう が ある")
     ),
     SimilarKatakanaPair(
-      first: SimilarKatakanaEntry(character: "ス", description: "ス は はらい だけ"),
-      second: SimilarKatakanaEntry(character: "ヌ", description: "ヌ は てん が ある")
+      first: SimilarKatakanaEntry(character: "ス", description: "ス は はらい が こうさ しない"),
+      second: SimilarKatakanaEntry(character: "ヌ", description: "ヌ は はらい が こうさ する")
     ),
     SimilarKatakanaPair(
       first: SimilarKatakanaEntry(character: "マ", description: "マ は よこぼう が うえ"),

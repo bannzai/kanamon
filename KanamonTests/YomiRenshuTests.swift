@@ -188,6 +188,38 @@ final class YomiRenshuTests: XCTestCase {
     XCTAssertTrue(model.highlightedIndices.isEmpty)
   }
 
+  /// タップの読み終わりを待つ間に ぜんぶ よむ が始まったら、タップの後始末でそのハイライトを消さない。
+  func testTapKeepsHighlightStartedByPlayAll() async throws {
+    let sleepGate = SleepGate()
+    let modelContext = try makeModelContext(names: ["テストモン"])
+    let model = YomiRenshuModel(
+      modelContext: modelContext,
+      repository: PokemonRepository(
+        modelContext: modelContext,
+        dataSource: UnavailablePokemonDataSource(),
+        pokemonIDs: [1]
+      ),
+      speechSynthesizer: SpeechSynthesizerStub(),
+      sleep: { _ in await sleepGate.wait() }
+    )
+    await model.load()
+
+    let tap = Task { await model.tap(index: 0) }
+    await waitUntil(message: "タップがハイライトの待ちに入らなかった") { sleepGate.waitingCount == 1 }
+    let playing = Task { await model.playAll() }
+    await waitUntil(message: "ぜんぶ よむ が文字の間の待ちに入らなかった") { sleepGate.waitingCount == 2 }
+
+    sleepGate.releaseEarliest()
+    await tap.value
+
+    XCTAssertEqual(model.highlightedIndices, [0])
+
+    // 待たせたままでは再生が終わらないため、中断してから待ちを解いて片付ける
+    model.stop()
+    sleepGate.releaseEarliest()
+    await playing.value
+  }
+
   /// 画面に出す固定文言と見分け方は、子どもが読めるひらがな・カタカナと空白だけにする。
   func testFixedTextsUseOnlyKanaAndSpacing() throws {
     for text in YomiRenshuText.all {

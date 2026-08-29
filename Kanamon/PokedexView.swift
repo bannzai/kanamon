@@ -318,6 +318,8 @@ struct PokemonSpriteView: View {
       }
     }
     .task(id: pokemon.id) {
+      // 別のポケモンに変わった時に前のポケモンの画像が残らないよう、読み込みの前に消す
+      spriteImage = nil
       await loadSprite()
     }
   }
@@ -327,11 +329,18 @@ struct PokemonSpriteView: View {
       return
     }
 
+    // 取得を待つ間に別のポケモンへ切り替わったことを、取得結果を出す前に見分けるために控えておく
+    let requestedPokemonID = pokemon.id
     var retryIntervalSeconds = 1
     while !Task.isCancelled {
       if let data = try? await imageCache.imageData(for: pokemon),
         let image = UIImage(data: data)
       {
+        // 取得を待つ間に別のポケモンへ切り替わっていたら、前のポケモンの画像を出さずに終わる
+        if Task.isCancelled || pokemon.id != requestedPokemonID {
+          return
+        }
+
         spriteImage = image
         return
       }
