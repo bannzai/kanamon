@@ -300,7 +300,9 @@ private struct CharacterPokemonSheet: View {
     VStack(alignment: .leading, spacing: 12) {
       header
       ScrollView {
-        VStack(spacing: 8) {
+        // 「ン」のように該当が多い文字では行数が増えるため、表示範囲の行だけを作る。
+        // 各行が未キャッシュのスプライトを取りに行くので、一度に全行を作ると通信が一斉に走る
+        LazyVStack(spacing: 8) {
           if let note {
             MojiZukanNote(text: note)
           }
@@ -373,9 +375,12 @@ private struct CharacterPokemonSheet: View {
       VStack(alignment: .leading, spacing: 4) {
         Text(MojiZukanText.sheetTitle(character: character))
           .font(.system(size: 20, weight: .heavy, design: .rounded))
-        Text(MojiZukanText.pokemonCount(count: pokemon.count))
-          .font(.system(size: 15, weight: .bold, design: .rounded))
-          .opacity(0.65)
+        // 読み込み中は件数が確定していないため出さない。0 ひきと出すと「いない」と誤って伝わる
+        if model.state == .loaded {
+          Text(MojiZukanText.pokemonCount(count: pokemon.count))
+            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .opacity(0.65)
+        }
       }
       Spacer(minLength: 0)
 
