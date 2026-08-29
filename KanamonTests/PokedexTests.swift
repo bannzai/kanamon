@@ -6,6 +6,11 @@ import XCTest
 @testable import Kanamon
 
 final class PokedexTests: XCTestCase {
+  func testYomiRenshuDestinationKeepsSelectedPokemonID() {
+    XCTAssertEqual(YomiRenshuDestination(pokemonID: 25).pokemonID, 25)
+    XCTAssertNotEqual(YomiRenshuDestination(pokemonID: 1), YomiRenshuDestination(pokemonID: 2))
+  }
+
   func testNumberTextUsesThreeDigits() {
     XCTAssertEqual(pokedexNumberText(id: 1), "No.001")
     XCTAssertEqual(pokedexNumberText(id: 25), "No.025")

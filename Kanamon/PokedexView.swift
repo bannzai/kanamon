@@ -18,17 +18,25 @@ enum PokedexText {
 struct PokedexView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var model: PokedexModel?
+  /// 「もういちど」で増やし、`.task(id:)` に読み込みをやり直させる。画面が消えれば読み込みごとキャンセルされる
+  @State private var loadRequestCount = 0
 
   var body: some View {
     PokedexDeviceFrame {
       if let model {
-        PokedexContentView(model: model)
+        PokedexContentView(model: model) {
+          loadRequestCount += 1
+        }
       } else {
         ProgressView()
       }
     }
     .toolbar(.hidden, for: .navigationBar)
-    .task {
+    .navigationDestination(for: YomiRenshuDestination.self) { _ in
+      // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える
+      PlaceholderView(title: HomeMenuItem(destination: .yomiRenshu).title)
+    }
+    .task(id: loadRequestCount) {
       let model = self.model ?? PokedexModel(modelContext: modelContext)
       self.model = model
 
@@ -166,6 +174,7 @@ private struct PokedexLamp: View {
 /// 読み込み済みのモデルを受け取り、ずかんの見出し・進捗・一覧を描画する。
 private struct PokedexContentView: View {
   let model: PokedexModel
+  let retryAction: () -> Void
 
   @Environment(\.dismiss) private var dismiss
   @State private var toastText: String?
@@ -332,9 +341,7 @@ private struct PokedexContentView: View {
         .foregroundStyle(DesignColor.ink)
 
       if showsRetry {
-        Button(PokedexText.retry) {
-          Task { await model.load() }
-        }
+        Button(PokedexText.retry, action: retryAction)
         .font(.system(size: 22, weight: .bold, design: .rounded))
         .foregroundStyle(DesignColor.blue)
       }
@@ -356,7 +363,7 @@ struct PokedexCell: View {
   var body: some View {
     Group {
       if isCaught {
-        NavigationLink(value: AppDestination.yomiRenshu) {
+        NavigationLink(value: YomiRenshuDestination(pokemonID: pokemon.id)) {
           label
         }
       } else {
@@ -441,9 +448,10 @@ struct PokemonSpriteView: View {
 
   @State private var spriteImage: UIImage?
 
-  /// スプライト取得をあきらめるまでの試行回数。
-  /// 一時的な通信障害で 1 回失敗しただけのセルが、次にセルが作り直されるまで空欄のまま残るのを防ぐ
-  private static let maximumAttempts = 5
+  /// 再試行の間隔の上限 (秒)。通信障害が長引いても、復旧後この時間以内には取り直す。
+  /// 回数で打ち切るとその後に通信が復旧しても空欄のままになるため、セルが表示されている間は取れるまで続ける
+  /// (`.task` はセルが画面から消えると SwiftUI がキャンセルする)
+  private static let maximumRetryIntervalSeconds = 30
 
   /// 未ゲットのシルエットの濃さ (README: `brightness(0) opacity(.34)`)
   private static let silhouetteOpacity = 0.34
@@ -470,21 +478,20 @@ struct PokemonSpriteView: View {
       return
     }
 
-    for attempt in 0..<Self.maximumAttempts {
-      if attempt > 0 {
-        // 通信の復旧を待つため、失敗するたびに間隔を倍にする (1・2・4・8 秒)
-        try? await Task.sleep(for: .seconds(1 << (attempt - 1)))
-      }
-      if Task.isCancelled {
-        return
-      }
-
+    var retryIntervalSeconds = 1
+    while !Task.isCancelled {
       if let data = try? await imageCache.imageData(for: pokemon),
         let image = UIImage(data: data)
       {
         spriteImage = image
         return
       }
+
+      // 通信の復旧を待つため、失敗するたびに間隔を倍にする (1・2・4・… 最大 30 秒)
+      guard (try? await Task.sleep(for: .seconds(retryIntervalSeconds))) != nil else {
+        return
+      }
+      retryIntervalSeconds = min(retryIntervalSeconds * 2, Self.maximumRetryIntervalSeconds)
     }
   }
 }
