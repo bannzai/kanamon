@@ -238,9 +238,10 @@ struct KakiRenshuView: View {
 
   private func playDemo() {
     demoTask?.cancel()
+    let strokes = model.strokes
     demoTask = Task {
-      for index in model.strokes.indices {
-        let duration = max(0.36, Double(model.strokes[index].totalLength) * 0.013)
+      for index in strokes.indices {
+        let duration = max(0.36, Double(strokes[index].totalLength) * 0.013)
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
@@ -330,7 +331,7 @@ private struct TraceCanvas: View {
         StrokeNumberBadge(
           stroke: strokes[index],
           number: index + 1,
-          isCurrent: index == strokeIndex && demoStrokeIndex == nil,
+          isCurrent: index == strokeIndex,
           isWritten: index < strokeIndex,
           scale: scale
         )
@@ -392,9 +393,16 @@ private struct TraceCanvas: View {
       .frame(width: side, height: side, alignment: .topLeading)
   }
 
+  /// お手本の再生。書き終えた画は残したまま、今描いている画だけを長さで伸ばす。
   @ViewBuilder
   private var demoStroke: some View {
     if let demoStrokeIndex, strokes.indices.contains(demoStrokeIndex) {
+      ScaledPath(content: scaled(combinedPath(of: Array(strokes.prefix(demoStrokeIndex)))))
+        .stroke(
+          DesignColor.blue,
+          style: StrokeStyle(lineWidth: 6 * scale, lineCap: .round, lineJoin: .round)
+        )
+        .frame(width: side, height: side, alignment: .topLeading)
       ScaledPath(content: scaled(Path(strokes[demoStrokeIndex].cgPath)))
         .trim(from: 0, to: demoProgress)
         .stroke(
@@ -454,8 +462,6 @@ private struct StrokeNumberBadge: View {
   let isWritten: Bool
   let scale: CGFloat
 
-  @State private var isPulsing = false
-
   var body: some View {
     let center = Self.badgeCenter(of: stroke)
 
@@ -465,16 +471,12 @@ private struct StrokeNumberBadge: View {
       .frame(width: 14 * scale, height: 14 * scale)
       .background(background, in: Circle())
       .overlay(Circle().stroke(borderColor, lineWidth: 2.4 * scale))
-      .scaleEffect(isCurrent && isPulsing ? 1.18 : 1)
-      .position(x: center.x * scale, y: center.y * scale)
-      .onAppear {
-        guard isCurrent else {
-          return
-        }
-        withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) {
-          isPulsing = true
-        }
+      .phaseAnimator([1.0, 1.18]) { view, pulse in
+        view.scaleEffect(isCurrent ? pulse : 1)
+      } animation: { _ in
+        .easeInOut(duration: 0.65)
       }
+      .position(x: center.x * scale, y: center.y * scale)
   }
 
   private var background: Color {
