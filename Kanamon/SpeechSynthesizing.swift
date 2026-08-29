@@ -35,6 +35,8 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   private let lock = NSRecursiveLock()
   private var currentRequest: SpeakingRequest?
   private var generationCounter = 0
+  /// `stop()` が呼ばれた回数。`speak` がクイズ側の停止を待っている間に止められたかを、登録前に照合するために持つ。
+  private var stopCounter = 0
 
   /// 子ども向けに少し高い声にする。1.0 が地声で、上げすぎると聞き取りにくくなるため小さめに振る。
   private static let pitchMultiplier: Float = 1.15
@@ -51,6 +53,9 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     utterance.rate = rate
     utterance.pitchMultiplier = Self.pitchMultiplier
 
+    // クイズ側の停止を待つ間に stop() が呼ばれたら、その後で発話を始めないよう、待つ前の停止回数を控える
+    let stopCountBeforeSuspension = currentStopCount()
+
     // クイズ画面は別の `AVSpeechSynthesizer` にキューを積むため、こちらの発話に重ならないよう先に止める
     await MainActor.run { SpeechSynthesizer.shared.stop() }
 
@@ -58,6 +63,12 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
       // 取り外しから登録までを 1 度の lock 区間で行い、並行して呼ばれた時に
       // currentRequest が上書きされて前の continuation が残らないようにする
       lock.lock()
+      // 待っている間に stop() が入っていたら、まだ登録前で止める対象が無かったため、ここで発話せずに返る
+      if stopCounter != stopCountBeforeSuspension {
+        lock.unlock()
+        continuation.resume()
+        return
+      }
       let previousRequest = detachCurrentRequestWithLockHeld()
       generationCounter += 1
       let generation = generationCounter
@@ -99,9 +110,17 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     }
   }
 
+  /// `stop()` が呼ばれた回数を lock 越しに読む。async の途中から直接 lock を取れないため同期関数に分ける。
+  private func currentStopCount() -> Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return stopCounter
+  }
+
   /// 進行中の発話を止めて、待っている呼び出し元を返す。発話していない時に呼んでも何も起きない。
   private func stopCurrentSpeaking() {
     lock.lock()
+    stopCounter += 1
     let request = detachCurrentRequestWithLockHeld()
     lock.unlock()
 

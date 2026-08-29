@@ -29,6 +29,27 @@ final class SpeechSynthesizingTests: XCTestCase {
     await fulfillment(of: [bothReturned], timeout: Self.returnTimeoutSeconds)
   }
 
+  /// speak がクイズ側の停止を待っている間に stop() されたら、その後で発話を始めずに返る。
+  func testStopWhileSpeakIsSuspendedPreventsLateStart() async {
+    let synthesizer = JapaneseSpeechSynthesizer()
+    // 時間切れの保険が 15 秒になる長さ。発話が始まってしまった場合は保険まで返らないため、所要時間で見分ける
+    let text = String(repeating: "ア", count: 20)
+    let startedDate = Date()
+
+    await withTaskGroup(of: Void.self) { group in
+      group.addTask { await synthesizer.speak(text: text, rate: Self.rate) }
+      // speak が MainActor.run で中断している最中を狙って止める。登録後に止まった場合も speak は即座に返る
+      group.addTask {
+        for _ in 0..<50 {
+          synthesizer.stop()
+          try? await Task.sleep(for: .milliseconds(2))
+        }
+      }
+    }
+
+    XCTAssertLessThan(Date().timeIntervalSince(startedDate), Self.stopReturnSeconds)
+  }
+
   /// 発話中に中断したら、時間切れの保険を待たずに speak が返る。
   func testStopReturnsWaitingSpeakBeforeTimeout() async {
     let synthesizer = JapaneseSpeechSynthesizer()
