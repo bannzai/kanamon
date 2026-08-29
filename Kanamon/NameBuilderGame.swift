@@ -73,8 +73,11 @@ struct NameBuilderGame: Equatable {
   /// タイルをタップして、先頭から数えて次の空きマスを埋める。
   ///
   /// 呼ぶたびに 1 文字増えるため冪等ではない。使い切ったタイルと、全マスが埋まっている時は何もしない。
+  /// 使用済みかどうかは引数の `Tile` ではなく、いまの `placedTileIDs` で判定する。
+  /// `Tile.isSpent` は表示を組み立てた時点の値のため、同じタイルを素早く 2 回叩くと
+  /// どちらの呼び出しにも `isSpent == false` の同じ値が渡り、1 枚のタイルを 2 回置けてしまう。
   mutating func place(tile: Tile) {
-    guard !tile.isSpent, !isFilled, tiles.indices.contains(tile.id) else {
+    guard !isFilled, tiles.indices.contains(tile.id), !placedTileIDs.contains(tile.id) else {
       return
     }
     placedTileIDs.append(tile.id)

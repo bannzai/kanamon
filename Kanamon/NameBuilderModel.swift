@@ -18,6 +18,8 @@ final class NameBuilderModel {
   private(set) var game: NameBuilderGame?
   /// 正解した時に見せるゲット演出の内容。クイズと同じ内容を見せるため型を共有する。
   private(set) var result: QuizResult?
+  /// 保存できなかった「読めた文字」。次の正解でまた出会った時に記録し直すため、握りつぶさず残す。
+  private(set) var unsavedReadCharacters: Set<Character> = []
   /// 誤った並びを戻すまでの間か。この間は盤面の操作を受け付けない。
   ///
   /// 戻す前に並べ直せると、古い判定結果が新しい並びへ適用されてしまうため。
@@ -59,7 +61,11 @@ final class NameBuilderModel {
       caughtPokemonIDs = try learningProgressStore.caughtPokemonIDs()
       pokemons = try await repository.loadFirstGeneration()
     } catch {
-      state = .failed
+      // 画面を離れた時の取り消しは読み込みの失敗ではないため、「よみこめなかったよ」を出さない。
+      // 取り消された時は画面ごと無くなるので、読み込み中のまま残して構わない。
+      if !(error is CancellationError), !Task.isCancelled {
+        state = .failed
+      }
       return
     }
 
@@ -128,6 +134,8 @@ final class NameBuilderModel {
 
   /// 次のポケモンの出題へ進む。最後まで行ったら先頭へ戻る。
   func advance() {
+    // 並べた文字と名前の読み上げがキューに残っていると、次のポケモンの盤面で鳴り続けるため止める。
+    SpeechSynthesizer.shared.stop()
     result = nil
     rollingBack = false
     if let latest = try? learningProgressStore.caughtPokemonIDs() {
@@ -174,7 +182,14 @@ final class NameBuilderModel {
       saved = false
     }
     for character in Gojuon.readableCharacters(in: pokemon.japaneseName) {
-      try? learningProgressStore.markRead(character: character)
+      do {
+        try learningProgressStore.markRead(character: character)
+      } catch {
+        // 保存できなかった文字を未保存のまま残すと、次の保存に巻き込まれて永続化されるため捨てる。
+        // 読めた文字は同じ文字に別のポケモンで出会った時に記録し直せるので、遊びは止めない。
+        learningProgressStore.discardUnsavedChanges()
+        unsavedReadCharacters.insert(character)
+      }
     }
 
     result = QuizResult(pokemon: pokemon, isNewCatch: notCaughtYet && saved)

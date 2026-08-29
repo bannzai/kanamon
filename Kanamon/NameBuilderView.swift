@@ -106,15 +106,24 @@ private struct NameBuilderContentView: View {
     ZStack {
       switch model.state {
       case .loading:
-        NameBuilderStatusView(text: NameBuilderText.loading) { ProgressView() }
-      case .failed:
-        NameBuilderStatusView(text: NameBuilderText.failed) {
-          Button(NameBuilderText.retry) {
-            Task { await model.retryLoad() }
-          }
-          .font(.system(size: 26, weight: .heavy, design: .rounded))
-          .foregroundStyle(DesignColor.ink)
+        // 読み込み中・失敗時もホームへ戻れるように、盤面と同じヘッダーを出す。
+        VStack(spacing: 12) {
+          header(pokemon: nil)
+          NameBuilderStatusView(text: NameBuilderText.loading) { ProgressView() }
         }
+        .padding(NameBuilderLayout.boardPadding)
+      case .failed:
+        VStack(spacing: 12) {
+          header(pokemon: nil)
+          NameBuilderStatusView(text: NameBuilderText.failed) {
+            Button(NameBuilderText.retry) {
+              Task { await model.retryLoad() }
+            }
+            .font(.system(size: 26, weight: .heavy, design: .rounded))
+            .foregroundStyle(DesignColor.ink)
+          }
+        }
+        .padding(NameBuilderLayout.boardPadding)
       case .loaded:
         if let pokemon = model.pokemon, let game = model.game {
           board(pokemon: pokemon, game: game)
@@ -153,17 +162,7 @@ private struct NameBuilderContentView: View {
     screenWidth: CGFloat
   ) -> some View {
     VStack(spacing: 12) {
-      HStack(spacing: 12) {
-        PokedexBackButton { dismiss() }
-
-        Text(NameBuilderText.title)
-          .font(.system(size: 30, weight: .black, design: .rounded))
-          .foregroundStyle(DesignColor.ink)
-          .lineLimit(1)
-          .minimumScaleFactor(0.6)
-          .frame(maxWidth: .infinity, alignment: .leading)
-      }
-      .frame(height: 64)
+      header(pokemon: pokemon)
 
       QuizSpriteImage(pokemon: pokemon, imageCache: model.imageCache, size: 178)
         .frame(maxWidth: .infinity, minHeight: 196)
@@ -232,6 +231,34 @@ private struct NameBuilderContentView: View {
     }
     .padding(NameBuilderLayout.boardPadding)
     .frame(maxWidth: .infinity)
+  }
+
+  /// 画面の上のヘッダー。戻るボタン・画面名と、出題中のポケモンの図鑑番号を出す。
+  ///
+  /// 番号は確定デザイン (documents/design/README.md「1. デザインの土台」) の `No.001` 形式にそろえる。
+  private func header(pokemon: Pokemon?) -> some View {
+    HStack(spacing: 12) {
+      PokedexBackButton { dismiss() }
+
+      Text(NameBuilderText.title)
+        .font(.system(size: 30, weight: .black, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+
+      if let pokemon {
+        Text(String(format: "No.%03d", pokemon.id))
+          .font(.system(size: 17, weight: .black, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .lineLimit(1)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+          .background(DesignColor.yellow, in: Capsule())
+          .overlay(Capsule().strokeBorder(DesignColor.ink, lineWidth: 4))
+      }
+    }
+    .frame(height: 64)
   }
 
   private func tap(tile: NameBuilderGame.Tile) {
@@ -432,65 +459,75 @@ private struct NameBuilderGetOverlay: View {
     ZStack {
       DesignColor.yellow.opacity(0.97).ignoresSafeArea()
 
-      VStack(spacing: 16) {
-        Spacer(minLength: 0)
-        QuizSpriteImage(pokemon: result.pokemon, imageCache: imageCache, size: 172)
-          .frame(width: 214, height: 214)
-          .background(DesignColor.paper, in: Circle())
-          .overlay(Circle().strokeBorder(DesignColor.ink, lineWidth: 6))
-
-        Text(result.isNewCatch ? NameBuilderText.getHeadline : NameBuilderText.correctHeadline)
-          .font(.system(size: 62, weight: .heavy, design: .rounded))
-          .foregroundStyle(.white)
-          .lineLimit(1)
-          .minimumScaleFactor(0.5)
-          .shadow(color: DesignColor.ink, radius: 0, x: 3, y: 0)
-          .shadow(color: DesignColor.ink, radius: 0, x: -3, y: 0)
-          .shadow(color: DesignColor.ink, radius: 0, x: 0, y: 3)
-          .shadow(color: DesignColor.ink, radius: 0, x: 0, y: -3)
-
-        Text(result.pokemon.japaneseName)
-          .font(.system(size: 42, weight: .heavy, design: .rounded))
-          .foregroundStyle(DesignColor.ink)
-          .lineLimit(1)
-          .minimumScaleFactor(0.4)
-          .padding(.horizontal, 24)
-          .padding(.vertical, 12)
-          .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-          .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-              .strokeBorder(DesignColor.ink, lineWidth: 5)
-          }
-
-        Text(result.isNewCatch ? NameBuilderText.registered : NameBuilderText.alreadyRegistered)
-          .font(.system(size: 18, weight: .heavy, design: .rounded))
-          .foregroundStyle(DesignColor.ink)
-          .lineLimit(1)
-          .minimumScaleFactor(0.5)
-        Spacer(minLength: 0)
-
-        Button(action: onNext) {
-          Text(NameBuilderText.next)
-            .font(.system(size: 34, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 96)
+      // 図鑑筐体の中の表示領域は小さい端末で 581pt ほどしかなく、この演出は入り切らないためスクロールさせる。
+      GeometryReader { proxy in
+        ScrollView {
+          celebration
+            .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .center)
         }
-        .buttonStyle(
-          PokedexCardButtonStyle(
-            background: DesignColor.green,
-            cornerRadius: 30,
-            borderWidth: 5,
-            shadowHeight: 7
-          )
-        )
-        .accessibilityIdentifier("name_builder_next_button")
+        .scrollBounceBehavior(.basedOnSize)
       }
-      .padding(.horizontal, 24)
-      .padding(.vertical, 28)
-      .frame(maxWidth: .infinity)
     }
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("name_builder_get_overlay")
+  }
+
+  private var celebration: some View {
+    VStack(spacing: 16) {
+      Spacer(minLength: 0)
+      QuizSpriteImage(pokemon: result.pokemon, imageCache: imageCache, size: 172)
+        .frame(width: 214, height: 214)
+        .background(DesignColor.paper, in: Circle())
+        .overlay(Circle().strokeBorder(DesignColor.ink, lineWidth: 6))
+
+      Text(result.isNewCatch ? NameBuilderText.getHeadline : NameBuilderText.correctHeadline)
+        .font(.system(size: 62, weight: .heavy, design: .rounded))
+        .foregroundStyle(.white)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+        .shadow(color: DesignColor.ink, radius: 0, x: 3, y: 0)
+        .shadow(color: DesignColor.ink, radius: 0, x: -3, y: 0)
+        .shadow(color: DesignColor.ink, radius: 0, x: 0, y: 3)
+        .shadow(color: DesignColor.ink, radius: 0, x: 0, y: -3)
+
+      Text(result.pokemon.japaneseName)
+        .font(.system(size: 42, weight: .heavy, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.4)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 12)
+        .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+          RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .strokeBorder(DesignColor.ink, lineWidth: 5)
+        }
+
+      Text(result.isNewCatch ? NameBuilderText.registered : NameBuilderText.alreadyRegistered)
+        .font(.system(size: 18, weight: .heavy, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+      Spacer(minLength: 0)
+
+      Button(action: onNext) {
+        Text(NameBuilderText.next)
+          .font(.system(size: 34, weight: .heavy, design: .rounded))
+          .foregroundStyle(.white)
+          .frame(maxWidth: .infinity, minHeight: 96)
+      }
+      .buttonStyle(
+        PokedexCardButtonStyle(
+          background: DesignColor.green,
+          cornerRadius: 30,
+          borderWidth: 5,
+          shadowHeight: 7
+        )
+      )
+      .accessibilityIdentifier("name_builder_next_button")
+      }
+    .padding(.horizontal, 24)
+    .padding(.vertical, 28)
   }
 }
 

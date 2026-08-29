@@ -80,6 +80,20 @@ final class NameBuilderGameTests: XCTestCase {
     XCTAssertEqual(game.placed, ["モ"])
   }
 
+  /// 同じタイルの値で 2 回続けて置いても、1 枚ぶんしか置けない。
+  ///
+  /// `Tile.isSpent` は表示を組み立てた時点の値のため、素早く 2 回叩くと同じ値が 2 回渡る。
+  func testPlacingSameTileValueTwiceAddsOneCharacter() {
+    var game = NameBuilderGame(answer: Array("テスト"), tiles: Array("テスト"))
+    guard let tile = game.tileStates.first(where: { $0.character == "テ" }) else {
+      return XCTFail("テ のタイルが見つからない")
+    }
+
+    game.place(tile: tile)
+    game.place(tile: tile)
+    XCTAssertEqual(game.placed, ["テ"])
+  }
+
   /// タイルが 1 枚しかない文字は、1 回置いた時点で押せなくなる。
   func testSpentTileCannotBePlacedAgain() {
     var game = NameBuilderGame(answer: Array("テスト"), tiles: Array("テスト"))
@@ -247,6 +261,19 @@ final class NameBuilderGameTests: XCTestCase {
 
     XCTAssertEqual(try store.caughtPokemonIDs(), [1])
     XCTAssertEqual(try store.readCharacters(), Gojuon.readableCharacters(in: String(answer)))
+  }
+
+  /// 画面を離れた時の取り消しを、読み込みの失敗として扱わない。
+  @MainActor
+  func testModelDoesNotFailOnCancellation() async throws {
+    let context = ModelContext(try makeContainer())
+    let model = makeModel(context: context)
+
+    let task = Task { await model.load() }
+    task.cancel()
+    await task.value
+
+    XCTAssertNotEqual(model.state, .failed)
   }
 
   /// 子どもが読めるように、画面に出す文言はかな・数字・約物だけにする。
