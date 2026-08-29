@@ -101,6 +101,11 @@ private struct NameBuilderContentView: View {
   @State private var overlay = false
   /// 正解演出・誤答の戻しを進めているタスク。画面を離れた時に取り消す。
   @State private var judgementTask: Task<Void, Never>?
+  /// 「もういちど」で読み込み直しているタスク。画面を離れた時に取り消す。
+  ///
+  /// ボタンから起こした `Task` はビューの `.task` と違って画面が消えても止まらず、
+  /// 151 匹の取得とキャッシュ保存が続いてしまうため、ハンドルを保持する。
+  @State private var retryTask: Task<Void, Never>?
 
   var body: some View {
     ZStack {
@@ -117,7 +122,8 @@ private struct NameBuilderContentView: View {
           header(pokemon: nil)
           NameBuilderStatusView(text: NameBuilderText.failed) {
             Button(NameBuilderText.retry) {
-              Task { await model.retryLoad() }
+              retryTask?.cancel()
+              retryTask = Task { await model.retryLoad() }
             }
             .font(.system(size: 26, weight: .heavy, design: .rounded))
             .foregroundStyle(DesignColor.ink)
@@ -141,6 +147,11 @@ private struct NameBuilderContentView: View {
     .onDisappear {
       judgementTask?.cancel()
       judgementTask = nil
+      retryTask?.cancel()
+      retryTask = nil
+      // 「よんで もらう」や文字タイルの読み上げがキューに残っていると、
+      // ホームへ戻った後も名前や文字が流れ続けるため止める。
+      SpeechSynthesizer.shared.stop()
     }
   }
 
