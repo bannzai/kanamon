@@ -155,9 +155,11 @@ struct HomeView: View {
           PokedexView()
         case .quiz:
           QuizView()
+        case .kakiRenshu:
+          KakiRenshuView()
         case .mojiZukan:
           MojiZukanView(path: $navigationPath)
-        case .yomiRenshu, .kakiRenshu, .namaeZukuri:
+        case .yomiRenshu, .namaeZukuri:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
