@@ -112,23 +112,39 @@ struct HomeView: View {
 
   var body: some View {
     NavigationStack(path: $navigationPath) {
-      VStack(spacing: 11) {
-        hero
+      // 6 つ並べるとはめ込み画面に入りきらない小型端末 (iPhone SE 等) では
+      // clipShape で下が欠けてしまうため、収まらない時だけスクロールさせる。
+      // 収まる端末では minHeight が画面の高さを埋め、ボタンが残りの高さを等分する
+      GeometryReader { proxy in
+        ScrollView {
+          VStack(spacing: 11) {
+            hero
 
-        VStack(spacing: 10) {
-          ForEach(HomeMenuItem.all) { item in
-            NavigationLink(value: item.destination) {
-              HomeMenuButtonLabel(
-                item: item,
-                description: HomeText.description(destination: item.destination, progress: progress)
-              )
+            VStack(spacing: 10) {
+              ForEach(HomeMenuItem.all) { item in
+                NavigationLink(value: item.destination) {
+                  HomeMenuButtonLabel(
+                    item: item,
+                    description: HomeText.description(destination: item.destination, progress: progress)
+                  )
+                }
+                .buttonStyle(
+                  PokedexCardButtonStyle(
+                    background: item.tint,
+                    cornerRadius: 30,
+                    borderWidth: 5,
+                    shadowHeight: 9
+                  )
+                )
+              }
             }
-            .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
+            .frame(maxHeight: .infinity)
           }
+          .padding(20)
+          .frame(maxWidth: .infinity, minHeight: proxy.size.height)
         }
-        .frame(maxHeight: .infinity)
+        .scrollBounceBehavior(.basedOnSize)
       }
-      .padding(20)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       // NavigationStack は自前の地の色 (白) を敷くため、画面ごとにクリームを塗り直す
       .background(DesignColor.cream)
@@ -248,21 +264,13 @@ private struct HomeMenuButtonLabel: View {
       Spacer(minLength: 0)
     }
     .padding(.horizontal, 14)
+    // 62pt のアイコンがカードの上下の枠に接しないようにする。この余白のぶん、
+    // ボタンが縮む時も高さは 74pt (62 + 6 + 6) より下がらない
+    .padding(.vertical, 6)
     // 高さは画面いっぱいまで伸ばして 6 つで等分する。プロトタイプの 86 を下限にすると
     // 筐体と safe area に削られた画面 (iPhone 16 Pro で約 695pt) に収まらずはみ出すため、
     // 下限は確定デザインのタップ領域の最小値 (README「6. スタイルトークン > 形」) の 60 にする
     .frame(maxWidth: .infinity, minHeight: 60, maxHeight: .infinity)
-    .background(item.tint)
-    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 30, style: .continuous)
-        .strokeBorder(DesignColor.ink, lineWidth: 5)
-    )
-    .background(
-      RoundedRectangle(cornerRadius: 30, style: .continuous)
-        .fill(DesignColor.ink)
-        .offset(y: 9)
-    )
   }
 }
 

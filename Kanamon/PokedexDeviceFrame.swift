@@ -146,6 +146,32 @@ struct PokedexPressButtonStyle: ButtonStyle {
   }
 }
 
+/// 確定デザインのカード型ボタン。押している間だけ 5pt 沈み、真下の影が消える
+/// (documents/design/README.md「6. スタイルトークン > 形」)。
+///
+/// 影をラベル側に描くと、`PokedexPressButtonStyle` がラベルごと沈めた時に影も一緒に下がって
+/// 隣のカードへ張り出すため、影の描画をボタンの見た目としてここで持つ。
+struct PokedexCardButtonStyle: ButtonStyle {
+  let background: Color
+  let cornerRadius: CGFloat
+  let borderWidth: CGFloat
+  /// 真下へずらす影の高さ (ぼかさない)
+  let shadowHeight: CGFloat
+
+  /// 押し込む深さ。README の「押下: translateY(5px) して影を消す」に合わせる
+  private static let pressOffset: CGFloat = 5
+
+  func makeBody(configuration: Configuration) -> some View {
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    return configuration.label
+      .background(background)
+      .clipShape(shape)
+      .overlay(shape.strokeBorder(DesignColor.ink, lineWidth: borderWidth))
+      .background(shape.fill(DesignColor.ink).offset(y: configuration.isPressed ? 0 : shadowHeight))
+      .offset(y: configuration.isPressed ? Self.pressOffset : 0)
+  }
+}
+
 /// 各画面の左上に置く戻るボタン。白地の角丸枠に矢印を入れる (README「2. 画面一覧と遷移」)。
 struct PokedexBackButton: View {
   let action: () -> Void
