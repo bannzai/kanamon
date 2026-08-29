@@ -39,7 +39,7 @@ final class MojiZukanModel {
 
   /// 五十音表に並ぶ 46 文字のうち、読めた文字の数。
   var readCount: Int {
-    GojuonTable.readCount(in: readCharacters)
+    GojuonTable.readCount(readCharacters: readCharacters)
   }
 
   /// 読めた文字の数と 46 文字を「12 / 46」の形で返す。

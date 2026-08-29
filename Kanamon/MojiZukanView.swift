@@ -16,11 +16,11 @@ enum MojiZukanText {
   static let yomiRenshu = "よみれんしゅう"
   static let close = "とじる"
 
-  static func sheetTitle(for character: Character) -> String {
+  static func sheetTitle(character: Character) -> String {
     "\(character) が つく モンスター"
   }
 
-  static func pokemonCount(_ count: Int) -> String {
+  static func pokemonCount(count: Int) -> String {
     "\(count) ひき"
   }
 
@@ -288,9 +288,9 @@ private struct CharacterPokemonSheet: View {
       )
 
       VStack(alignment: .leading, spacing: 4) {
-        Text(MojiZukanText.sheetTitle(for: character))
+        Text(MojiZukanText.sheetTitle(character: character))
           .font(.system(size: 20, weight: .heavy, design: .rounded))
-        Text(MojiZukanText.pokemonCount(pokemon.count))
+        Text(MojiZukanText.pokemonCount(count: pokemon.count))
           .font(.system(size: 15, weight: .bold, design: .rounded))
           .opacity(0.65)
       }
@@ -331,7 +331,7 @@ private struct CharacterPokemonRow: View {
           .opacity(0.55)
         if isCaught {
           HStack(spacing: 0) {
-            ForEach(PokemonCharacterSearch.nameCharacters(of: pokemon, highlighting: character)) { nameCharacter in
+            ForEach(PokemonCharacterSearch.nameCharacters(pokemon: pokemon, highlighting: character)) { nameCharacter in
               Text(String(nameCharacter.character))
                 .font(.system(size: 23, weight: .heavy, design: .rounded))
                 .foregroundStyle(nameCharacter.isMatch ? DesignColor.red : DesignColor.ink)

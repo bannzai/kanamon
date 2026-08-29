@@ -170,7 +170,7 @@ enum PokemonCharacterSearch {
 
   /// 名前を 1 文字ずつに分け、正規化すると探している文字になる位置に印をつける。
   static func nameCharacters(
-    of pokemon: Pokemon,
+    pokemon: Pokemon,
     highlighting character: Character
   ) -> [NameCharacter] {
     let normalizedCharacter = KatakanaCharacterNormalizer.baseCharacter(from: character)

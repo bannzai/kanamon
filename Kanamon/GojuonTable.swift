@@ -30,7 +30,7 @@ enum GojuonTable {
   /// 読めた文字のうち、五十音表に並ぶ 46 文字に入っているものを数える。
   ///
   /// 長音符「ー」のように表へ並べていない文字は分子に含めない。
-  static func readCount(in readCharacters: Set<Character>) -> Int {
+  static func readCount(readCharacters: Set<Character>) -> Int {
     characters.filter(readCharacters.contains).count
   }
 }

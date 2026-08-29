@@ -25,10 +25,10 @@ final class MojiZukanTests: XCTestCase {
 
   /// 進捗の分子には五十音表に並ぶ 46 文字だけを数え、長音符などは数えない。
   func testReadCountCountsOnlyCharactersOnTheTable() {
-    XCTAssertEqual(GojuonTable.readCount(in: []), 0)
-    XCTAssertEqual(GojuonTable.readCount(in: ["ア", "ン"]), 2)
-    XCTAssertEqual(GojuonTable.readCount(in: ["ア", "ー"]), 1)
-    XCTAssertEqual(GojuonTable.readCount(in: Set(GojuonTable.characters)), 46)
+    XCTAssertEqual(GojuonTable.readCount(readCharacters: []), 0)
+    XCTAssertEqual(GojuonTable.readCount(readCharacters: ["ア", "ン"]), 2)
+    XCTAssertEqual(GojuonTable.readCount(readCharacters: ["ア", "ー"]), 1)
+    XCTAssertEqual(GojuonTable.readCount(readCharacters: Set(GojuonTable.characters)), 46)
   }
 
   /// 濁点・半濁点・小書き文字を含む名前も、基底文字で逆引きできるようにする。
@@ -51,7 +51,7 @@ final class MojiZukanTests: XCTestCase {
     let pokemon = Pokemon(id: 1, japaneseName: "ガッツモン", spriteURL: sampleSpriteURL(id: 1))
 
     XCTAssertEqual(
-      PokemonCharacterSearch.nameCharacters(of: pokemon, highlighting: "ツ"),
+      PokemonCharacterSearch.nameCharacters(pokemon: pokemon, highlighting: "ツ"),
       [
         NameCharacter(id: 0, character: "ガ", isMatch: false),
         NameCharacter(id: 1, character: "ッ", isMatch: true),
@@ -61,14 +61,14 @@ final class MojiZukanTests: XCTestCase {
       ]
     )
     XCTAssertEqual(
-      PokemonCharacterSearch.nameCharacters(of: pokemon, highlighting: "カ").map(\.isMatch),
+      PokemonCharacterSearch.nameCharacters(pokemon: pokemon, highlighting: "カ").map(\.isMatch),
       [true, false, false, false, false]
     )
   }
 
   /// 子どもが読めるように、画面に出す文言は漢字を使わずひらがな・カタカナだけで書く。
   func testMojiZukanTextsUseNoKanji() {
-    for text in MojiZukanText.all + [MojiZukanText.sheetTitle(for: "ア"), MojiZukanText.pokemonCount(3)] {
+    for text in MojiZukanText.all + [MojiZukanText.sheetTitle(character: "ア"), MojiZukanText.pokemonCount(count: 3)] {
       XCTAssertFalse(text.containsKanji, "\(text) に漢字が含まれている")
     }
   }
