@@ -153,6 +153,16 @@ enum PokemonRepositoryError: Error, Equatable {
   case unexpectedPokemonID(expected: Int, actual: Int)
 }
 
+/// 名前を 1 文字ずつ表示する時の、文字と「探している文字に当たるか」の組を表す。
+///
+/// もじ ずかんの逆引きで、名前のどこにその文字がいるかを色分けするために使う。
+struct NameCharacter: Identifiable, Equatable {
+  /// 名前の先頭からの位置。同じ文字が 2 回出ても区別できるようにする。
+  let id: Int
+  let character: Character
+  let isMatch: Bool
+}
+
 /// 正規化した文字を名前に含むポケモンを、入力順を保って抽出する。
 enum PokemonCharacterSearch {
   static func pokemon(containing character: Character, in pokemon: [Pokemon]) -> [Pokemon] {
@@ -161,6 +171,21 @@ enum PokemonCharacterSearch {
       pokemon.japaneseName.contains { character in
         KatakanaCharacterNormalizer.baseCharacter(from: character) == normalizedCharacter
       }
+    }
+  }
+
+  /// 名前を 1 文字ずつに分け、正規化すると探している文字になる位置に印をつける。
+  static func nameCharacters(
+    pokemon: Pokemon,
+    highlighting character: Character
+  ) -> [NameCharacter] {
+    let normalizedCharacter = KatakanaCharacterNormalizer.baseCharacter(from: character)
+    return pokemon.japaneseName.enumerated().map { index, nameCharacter in
+      NameCharacter(
+        id: index,
+        character: nameCharacter,
+        isMatch: KatakanaCharacterNormalizer.baseCharacter(from: nameCharacter) == normalizedCharacter
+      )
     }
   }
 }

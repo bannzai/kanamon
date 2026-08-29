@@ -162,7 +162,7 @@ struct HomeView: View {
         case .namaeZukuri:
           NameBuilderView()
         case .mojiZukan:
-          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+          MojiZukanView(path: $navigationPath)
         }
       }
       // クイズ等でゲットしてから戻った時にも数え直すため、遷移の深さが変わるたびに読み直す。

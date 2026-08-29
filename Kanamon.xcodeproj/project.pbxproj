@@ -35,6 +35,10 @@
 		700000000000000000000004 /* NameBuilderModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800000000000000000000004 /* NameBuilderModel.swift */; };
 		700000000000000000000002 /* NameBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800000000000000000000002 /* NameBuilderView.swift */; };
 		700000000000000000000003 /* NameBuilderGameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800000000000000000000003 /* NameBuilderGameTests.swift */; };
+		B00000000000000000000001 /* GojuonTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000001 /* GojuonTable.swift */; };
+		B00000000000000000000002 /* MojiZukanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* MojiZukanModel.swift */; };
+		B00000000000000000000003 /* MojiZukanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000003 /* MojiZukanView.swift */; };
+		B00000000000000000000004 /* MojiZukanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000004 /* MojiZukanTests.swift */; };
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
@@ -89,6 +93,10 @@
 		800000000000000000000004 /* NameBuilderModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameBuilderModel.swift; sourceTree = "<group>"; };
 		800000000000000000000002 /* NameBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameBuilderView.swift; sourceTree = "<group>"; };
 		800000000000000000000003 /* NameBuilderGameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameBuilderGameTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000001 /* GojuonTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GojuonTable.swift; sourceTree = "<group>"; };
+		A00000000000000000000002 /* MojiZukanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MojiZukanModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000003 /* MojiZukanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MojiZukanView.swift; sourceTree = "<group>"; };
+		A00000000000000000000004 /* MojiZukanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MojiZukanTests.swift; sourceTree = "<group>"; };
 		29E985B158F0B7ADD8C5F040 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5D917AA35E42ED26847B6BB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
@@ -136,6 +144,9 @@
 				800000000000000000000001 /* NameBuilderGame.swift */,
 				800000000000000000000004 /* NameBuilderModel.swift */,
 				800000000000000000000002 /* NameBuilderView.swift */,
+				A00000000000000000000001 /* GojuonTable.swift */,
+				A00000000000000000000002 /* MojiZukanModel.swift */,
+				A00000000000000000000003 /* MojiZukanView.swift */,
 				200000000000000000000007 /* KanjiVGCache.swift */,
 				200000000000000000000006 /* LearningProgress.swift */,
 				200000000000000000000012 /* PokedexModel.swift */,
@@ -176,6 +187,7 @@
 				500000000000000000000005 /* KakiRenshuTests.swift */,
 				400000000000000000000006 /* QuizTests.swift */,
 				800000000000000000000003 /* NameBuilderGameTests.swift */,
+				A00000000000000000000004 /* MojiZukanTests.swift */,
 			);
 			path = KanamonTests;
 			sourceTree = "<group>";
@@ -281,6 +293,7 @@
 				100000000000000000000014 /* PokedexTests.swift in Sources */,
 				300000000000000000000006 /* QuizTests.swift in Sources */,
 				700000000000000000000003 /* NameBuilderGameTests.swift in Sources */,
+				B00000000000000000000004 /* MojiZukanTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -293,6 +306,9 @@
 				700000000000000000000001 /* NameBuilderGame.swift in Sources */,
 				700000000000000000000004 /* NameBuilderModel.swift in Sources */,
 				700000000000000000000002 /* NameBuilderView.swift in Sources */,
+				B00000000000000000000001 /* GojuonTable.swift in Sources */,
+				B00000000000000000000002 /* MojiZukanModel.swift in Sources */,
+				B00000000000000000000003 /* MojiZukanView.swift in Sources */,
 				100000000000000000000007 /* KanjiVGCache.swift in Sources */,
 				100000000000000000000006 /* LearningProgress.swift in Sources */,
 				9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */,
