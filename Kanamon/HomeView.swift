@@ -59,7 +59,7 @@ struct HomeView: View {
         case .yomiRenshu:
           YomiRenshuView()
         case .quiz:
-          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+          QuizView()
         }
       }
     }
