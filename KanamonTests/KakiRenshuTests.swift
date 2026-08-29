@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import XCTest
 
 @testable import Kanamon
@@ -240,6 +241,66 @@ final class KakiRenshuTests: XCTestCase {
     XCTAssertEqual(model.phase, .loading)
     XCTAssertTrue(model.strokes.isEmpty)
     XCTAssertTrue(model.characters.isEmpty)
+  }
+
+  // MARK: - 名前の進み具合 (ゲットの確定条件)
+
+  /// 文字はタップで選び直せるため、末尾の文字だけを書いても名前を書き終えた扱いにしない。
+  func testNameWritingProgressIsNotCompleteWhenOnlyTheLastCharacterIsWritten() {
+    var progress = NameWritingProgress(characterCount: 3)
+    progress.markWritten(at: 2)
+
+    XCTAssertEqual(progress.firstUnfinishedIndex, 0)
+  }
+
+  func testNameWritingProgressCountsSkippedCharactersAsFinished() {
+    var progress = NameWritingProgress(characterCount: 3)
+    progress.markWritten(at: 0)
+    // ニドラン♀ の「♀」のように書き順データが無い文字は飛ばして、名前を書き終えられるようにする。
+    progress.markSkipped(at: 1)
+    progress.markWritten(at: 2)
+
+    XCTAssertNil(progress.firstUnfinishedIndex)
+    XCTAssertTrue(progress.hasWrittenCharacter)
+  }
+
+  /// 書き順データが無い文字だけの名前を、一画も書かずにゲット扱いにしない。
+  func testNameWritingProgressHasNoWrittenCharacterWhenEveryCharacterIsSkipped() {
+    var progress = NameWritingProgress(characterCount: 2)
+    progress.markSkipped(at: 0)
+    progress.markSkipped(at: 1)
+
+    XCTAssertNil(progress.firstUnfinishedIndex)
+    XCTAssertFalse(progress.hasWrittenCharacter)
+  }
+
+  func testNameWritingProgressReopensCharacterSelectedAgain() {
+    var progress = NameWritingProgress(characterCount: 2)
+    progress.markWritten(at: 0)
+    progress.markWritten(at: 1)
+    progress.reopen(at: 0)
+
+    XCTAssertEqual(progress.firstUnfinishedIndex, 0)
+  }
+
+  // MARK: - 書き順データの取得失敗の切り分け
+
+  /// KanjiVG に無い文字だけを飛ばす。飛ばしてよいのは取り直しても取れないものに限る。
+  func testKanjiVGStrokeAvailabilityTreatsMissingDataAsUnsupported() {
+    XCTAssertTrue(KanjiVGStrokeAvailability.isUnsupported(KanjiVGCacheError.httpStatus(404)))
+    XCTAssertTrue(
+      KanjiVGStrokeAvailability.isUnsupported(KanjiVGCacheError.unsupportedCharacter("♀"))
+    )
+  }
+
+  /// 通信の失敗を飛ばすと、一画も書いていない文字を書けた扱いにしてしまう。
+  func testKanjiVGStrokeAvailabilityTreatsTemporaryFailureAsRetryable() {
+    XCTAssertFalse(KanjiVGStrokeAvailability.isUnsupported(KanjiVGCacheError.httpStatus(500)))
+    XCTAssertFalse(KanjiVGStrokeAvailability.isUnsupported(KanjiVGCacheError.invalidResponse))
+    XCTAssertFalse(
+      KanjiVGStrokeAvailability.isUnsupported(KanjiVGCacheError.cachesDirectoryNotFound)
+    )
+    XCTAssertFalse(KanjiVGStrokeAvailability.isUnsupported(URLError(.notConnectedToInternet)))
   }
 
   /// 書き順データが 2 画ぶん並んでいる、KanjiVG と同じ形の SVG。

@@ -32,9 +32,10 @@ struct KakiRenshuView: View {
     ZStack {
       KakiRenshuColor.background.ignoresSafeArea()
       content
-      if let caughtPokemon = model.caughtPokemon {
-        CaughtCelebrationView(pokemon: caughtPokemon, imageCache: model.imageCache) {
-          model.dismissCaughtPokemon()
+      if let result = model.result {
+        CaughtCelebrationView(result: result, imageCache: model.imageCache) {
+          stopDemo()
+          model.dismissResult()
         }
         .transition(.opacity)
       }
@@ -45,7 +46,7 @@ struct KakiRenshuView: View {
       await model.load(modelContext: modelContext)
     }
     .onDisappear {
-      demoTask?.cancel()
+      stopDemo()
     }
   }
 
@@ -60,10 +61,28 @@ struct KakiRenshuView: View {
           .font(.system(size: 22, weight: .bold, design: .rounded))
       }
     case .failure:
-      Text(model.message)
-        .font(.system(size: 22, weight: .bold, design: .rounded))
-        .multilineTextAlignment(.center)
-        .padding(24)
+      VStack(spacing: 24) {
+        Text(model.message)
+          .font(.system(size: 22, weight: .bold, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .multilineTextAlignment(.center)
+        Button {
+          Task {
+            await model.load(modelContext: modelContext)
+          }
+        } label: {
+          Text(KakiRenshuMessage.retry)
+            .font(.system(size: 30, weight: .heavy, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 84)
+            .background(
+              DesignColor.blue,
+              in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+      }
+      .padding(24)
     case .tracing:
       tracingContent
     }
@@ -98,6 +117,7 @@ struct KakiRenshuView: View {
         HStack(spacing: 4) {
           ForEach(Array(model.characters.enumerated()), id: \.offset) { index, character in
             Button {
+              stopDemo()
               model.selectCharacter(at: index)
             } label: {
               NameCharacterLabel(
@@ -195,6 +215,7 @@ struct KakiRenshuView: View {
   private var pokemonSwitcher: some View {
     HStack {
       Button {
+        stopDemo()
         model.showPokemon(offsetBy: -1)
       } label: {
         Image(systemName: "chevron.left")
@@ -212,6 +233,7 @@ struct KakiRenshuView: View {
       Spacer()
 
       Button {
+        stopDemo()
         model.showPokemon(offsetBy: 1)
       } label: {
         Image(systemName: "chevron.right")
@@ -234,6 +256,14 @@ struct KakiRenshuView: View {
     .font(.system(size: 10, weight: .medium))
     .foregroundStyle(DesignColor.sandDark)
     .multilineTextAlignment(.center)
+  }
+
+  /// お手本の再生を止めて、なぞりを受け付けられる状態へ戻す。
+  private func stopDemo() {
+    demoTask?.cancel()
+    demoTask = nil
+    demoStrokeIndex = nil
+    demoProgress = 0
   }
 
   private func playDemo() {
@@ -553,7 +583,7 @@ private struct StrokeDirectionArrow: View {
 
 /// 名前を全部書けた時のゲット演出。ずかんへの登録を子どもに分かる形で見せる。
 private struct CaughtCelebrationView: View {
-  let pokemon: Pokemon
+  let result: KakiRenshuResult
   let imageCache: PokemonImageCache?
   let onNext: () -> Void
 
@@ -570,20 +600,20 @@ private struct CaughtCelebrationView: View {
         .ignoresSafeArea()
 
       VStack(spacing: 16) {
-        Text("ゲット！")
+        Text(result.isRegistered ? "ゲット！" : "かけたね！")
           .font(.system(size: 56, weight: .black, design: .rounded))
           .foregroundStyle(.white)
           .shadow(color: DesignColor.ink, radius: 0, x: 4, y: 4)
 
-        PokemonSpriteView(pokemon: pokemon, isCaught: true, imageCache: imageCache)
+        PokemonSpriteView(pokemon: result.pokemon, isCaught: true, imageCache: imageCache)
           .frame(width: 180, height: 180)
 
         VStack(spacing: 6) {
-          Text(pokemon.japaneseName)
+          Text(result.pokemon.japaneseName)
             .font(.system(size: 40, weight: .black, design: .rounded))
             .minimumScaleFactor(0.5)
             .lineLimit(1)
-          Text("ずかん に とうろく したよ")
+          Text(result.isRegistered ? "ずかん に とうろく したよ" : "とうろく できなかったよ")
             .font(.system(size: 17, weight: .heavy, design: .rounded))
         }
         .foregroundStyle(DesignColor.ink)
