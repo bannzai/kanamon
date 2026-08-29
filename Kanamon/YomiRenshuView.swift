@@ -162,6 +162,9 @@ struct YomiRenshuView: View {
       Text(YomiRenshuText.title)
         .font(.system(size: 30, weight: .heavy, design: .rounded))
         .foregroundStyle(YomiRenshuPalette.ink)
+        // 戻るボタンと番号ピルに挟まれて 2 行に折れないよう、1 行のまま縮める
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
       Spacer(minLength: 0)
       if let pokemon {
         Text(String(format: "No.%03d", pokemon.id))
