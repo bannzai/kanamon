@@ -107,9 +107,11 @@ struct HomeProgress: Equatable {
 struct HomeView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var progress = HomeProgress.empty
+  /// 遷移の深さが変わるたびに進捗を読み直すために持つ。0 に戻った時がホームへの復帰
+  @State private var navigationPath = NavigationPath()
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $navigationPath) {
       VStack(spacing: 11) {
         hero
 
@@ -141,9 +143,9 @@ struct HomeView: View {
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
-      // 進捗は他の画面から戻った時にも更新したいが、SwiftData の @Query は
-      // ModelContainer 無しでの body 評価 (テスト・Preview) で落ちるため task で読み出す
-      .task {
+      // クイズ等でゲットしてから戻った時にも数え直すため、遷移の深さが変わるたびに読み直す。
+      // SwiftData の @Query は ModelContainer 無しでの body 評価 (テスト・Preview) で落ちるため使わない
+      .task(id: navigationPath.count) {
         progress = Self.loadProgress(modelContext: modelContext)
       }
     }
