@@ -50,16 +50,24 @@ struct HomeView: View {
 
   var body: some View {
     NavigationStack(path: $path) {
-      VStack(spacing: 20) {
-        ForEach(HomeMenuItem.all) { item in
-          NavigationLink(value: item.destination) {
-            HomeMenuButtonLabel(item: item)
+      // 導線が 4 つになると、iPhone SE のように画面が短い端末では
+      // ボタンの高さ (120 × 4) と間隔・余白の合計が表示領域に収まらないため、
+      // 収まる端末では中央寄せのまま、収まらない端末だけスクロールできるようにする。
+      GeometryReader { proxy in
+        ScrollView {
+          VStack(spacing: 20) {
+            ForEach(HomeMenuItem.all) { item in
+              NavigationLink(value: item.destination) {
+                HomeMenuButtonLabel(item: item)
+              }
+              .buttonStyle(.plain)
+            }
           }
-          .buttonStyle(.plain)
+          .padding(24)
+          .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .center)
         }
+        .scrollBounceBehavior(.basedOnSize)
       }
-      .padding(24)
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       .background(Color(.systemGroupedBackground))
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in

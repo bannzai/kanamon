@@ -65,6 +65,9 @@ struct MojiZukanView: View {
       }
     }
     .padding(16)
+    // iPad では横に引き伸ばさず中央寄せにする (documents/design/README.md「7. iPad での拡大方針」)。
+    // 引き伸ばすと 5 列の各セルが極端に横長になり、文字を追いにくくなる。
+    .frame(maxWidth: PokedexLayout.maximumScreenWidth)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(MojiZukanColor.background)
     .navigationTitle(MojiZukanText.title)
@@ -229,20 +232,25 @@ private struct CharacterPokemonSheet: View {
             MojiZukanNote(text: note)
           }
           ForEach(pokemon, id: \.id) { pokemon in
-            let isCaught = model.isCaught(pokemon)
-            Button {
-              guard isCaught else { return }
-              SpeechSynthesizer.shared.speak(pokemon.japaneseName)
-              onSelect(pokemon)
-            } label: {
-              CharacterPokemonRow(
-                pokemon: pokemon,
-                character: character,
-                isCaught: isCaught,
-                imageCache: model.imageCache
-              )
+            let row = CharacterPokemonRow(
+              pokemon: pokemon,
+              character: character,
+              isCaught: model.isCaught(pokemon),
+              imageCache: model.imageCache
+            )
+            // 未ゲットの行は押しても何も起きないため、ボタンにしない。
+            // ボタンのままだと VoiceOver が操作できる行として読み上げてしまう。
+            if model.isCaught(pokemon) {
+              Button {
+                SpeechSynthesizer.shared.speak(pokemon.japaneseName)
+                onSelect(pokemon)
+              } label: {
+                row
+              }
+              .buttonStyle(.plain)
+            } else {
+              row
             }
-            .buttonStyle(.plain)
           }
           if !pokemon.isEmpty && pokemon.contains(where: { !model.isCaught($0) }) {
             MojiZukanNote(text: MojiZukanText.notCaughtHint)
@@ -306,6 +314,10 @@ private struct CharacterPokemonSheet: View {
           .frame(width: 52, height: 52)
           .background(Color.white, in: Circle())
           .overlay(Circle().stroke(DesignColor.ink, lineWidth: 4))
+          // 見た目の円は 52pt のまま、押せる範囲だけを子ども向けの最小タップ領域 60pt へ広げる
+          // (documents/design/README.md「6. スタイルトークン > 形」)。
+          .frame(width: 60, height: 60)
+          .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(MojiZukanText.close)
