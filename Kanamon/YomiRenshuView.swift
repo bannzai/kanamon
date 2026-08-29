@@ -61,9 +61,8 @@ struct YomiRenshuView: View {
   var body: some View {
     content
       .frame(maxWidth: .infinity, maxHeight: .infinity)
+      // NavigationStack は自前の地の色 (白) を敷くため、画面ごとの地の色で塗り直す (筐体は ContentView が 1 度だけ包む)
       .background(YomiRenshuPalette.background)
-      // NavigationStack は自前の地の色 (白) を敷くため、筐体の内側をクリームで塗り直す (ContentView が筐体を 1 度だけ包む)
-      .background(DesignColor.cream)
       .toolbar(.hidden, for: .navigationBar)
       .onDisappear {
         model?.stop()
