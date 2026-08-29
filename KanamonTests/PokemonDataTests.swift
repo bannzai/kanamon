@@ -15,6 +15,10 @@ final class PokemonDataTests: XCTestCase {
     XCTAssertEqual(KatakanaConverter.hiragana(from: hiragana), hiragana)
   }
 
+  func testKatakanaConverterHandlesIterationMarks() {
+    XCTAssertEqual(KatakanaConverter.hiragana(from: "ヽヾ"), "ゝゞ")
+  }
+
   func testKatakanaCharacterNormalizerCombinesMarksAndSmallCharactersIntoBaseCharacters() {
     XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ガ"), "カ")
     XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ピ"), "ヒ")

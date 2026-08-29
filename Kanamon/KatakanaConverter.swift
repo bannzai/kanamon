@@ -6,7 +6,9 @@ enum KatakanaConverter {
     var convertedScalars = String.UnicodeScalarView()
 
     for scalar in katakana.unicodeScalars {
-      if (0x30A1...0x30F6).contains(scalar.value) {
+      if (0x30A1...0x30F6).contains(scalar.value)
+        || (0x30FD...0x30FE).contains(scalar.value)
+      {
         convertedScalars.append(UnicodeScalar(scalar.value - 0x60)!)
       } else {
         convertedScalars.append(scalar)
