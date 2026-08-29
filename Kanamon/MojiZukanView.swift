@@ -59,15 +59,21 @@ struct MojiZukanView: View {
     ZStack {
       VStack(spacing: 14) {
         header
+          .padding(.horizontal, 20)
 
         if let model {
           progressCard(model: model)
+            .padding(.horizontal, 20)
           gojuonCard(model: model)
+            .padding(.horizontal, GojuonLayout.cardHorizontalPadding)
         } else {
           ProgressView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
+      // シートを出している間は、背面をスワイプ操作で辿れないようにする。
+      // 半透明のビューは見た目を覆うだけで、VoiceOver からは背面が読めてしまうため
+      .accessibilityHidden(selection != nil)
 
       // 逆引きは OS のシートではなく画面の中に重ねる。OS のシートはウインドウが出すため、
       // ContentView が敷いた図鑑の筐体の上にかぶさって「図鑑にはめ込まれた画面」の構図が崩れる
@@ -83,7 +89,7 @@ struct MojiZukanView: View {
         )
       }
     }
-    .padding(20)
+    .padding(.vertical, 20)
     // iPad では横に引き伸ばさず中央寄せにする (documents/design/README.md「7. iPad での拡大方針」)。
     // 引き伸ばすと 5 列の各セルが極端に横長になり、文字を追いにくくなる。
     .frame(maxWidth: PokedexLayout.maximumScreenWidth)
@@ -96,11 +102,14 @@ struct MojiZukanView: View {
       // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える
       PlaceholderView(title: MojiZukanText.yomiRenshu)
     }
-    .task {
+    // よみれんしゅう等から戻った時にも表と進捗を追随させるため、遷移の深さが変わるたびに読み直す
+    .task(id: path.count) {
       let model = self.model ?? MojiZukanModel(modelContext: modelContext)
       self.model = model
 
-      if model.state != .loaded {
+      if model.state == .loaded {
+        model.reloadProgress()
+      } else {
         await model.load()
       }
     }
@@ -164,10 +173,10 @@ struct MojiZukanView: View {
     ScrollView {
       LazyVGrid(
         columns: Array(
-          repeating: GridItem(.flexible(), spacing: 5),
+          repeating: GridItem(.flexible(), spacing: GojuonLayout.cellSpacing),
           count: GojuonTable.columnCount
         ),
-        spacing: 5
+        spacing: GojuonLayout.cellSpacing
       ) {
         ForEach(Array(GojuonTable.cells.enumerated()), id: \.offset) { _, character in
           if let character {
@@ -183,7 +192,7 @@ struct MojiZukanView: View {
           }
         }
       }
-      .padding(12)
+      .padding(GojuonLayout.cardInnerPadding)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import SwiftData
 import SwiftUI
@@ -69,6 +70,42 @@ final class MojiZukanTests: XCTestCase {
   @MainActor
   func testViewsCanBeInstantiated() {
     XCTAssertNotNil(MojiZukanView(path: .constant(NavigationPath())).body)
+  }
+
+  /// 画面の狭い端末でも、五十音のマスが子ども向けの最小タップ領域 60pt を下回らないようにする。
+  func testGojuonCellStaysAtLeastMinimumTapTarget() {
+    // iPhone SE (幅 375pt) から図鑑筐体の左右の余白 (12pt × 2) を引いた画面の幅
+    let smallestScreenWidth: CGFloat = 375 - 24
+
+    XCTAssertGreaterThanOrEqual(GojuonLayout.cellWidth(screenWidth: smallestScreenWidth), 60)
+    XCTAssertGreaterThanOrEqual(
+      GojuonLayout.cellWidth(screenWidth: PokedexLayout.maximumScreenWidth - 24),
+      60
+    )
+  }
+
+  /// よみれんしゅう等から戻った時に、表と進捗が追随するようにする。
+  @MainActor
+  func testReloadProgressPicksUpCharactersReadAfterLoading() async throws {
+    let modelContext = ModelContext(PersistenceController(isStoredInMemoryOnly: true).container)
+    let learningProgressStore = LearningProgressStore(modelContext: modelContext)
+    let model = MojiZukanModel(
+      repository: PokemonRepository(
+        modelContext: modelContext,
+        dataSource: StubPokemonDataSource(),
+        pokemonIDs: []
+      ),
+      learningProgressStore: learningProgressStore,
+      imageCache: nil
+    )
+    await model.load()
+    XCTAssertEqual(model.readCount, 0)
+
+    try learningProgressStore.markRead(character: "ア")
+    model.reloadProgress()
+
+    XCTAssertEqual(model.readCount, 1)
+    XCTAssertTrue(model.isRead("ア"))
   }
 
   /// 進捗の分子には五十音表に並ぶ 46 文字だけを数え、長音符などは数えない。

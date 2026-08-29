@@ -24,3 +24,24 @@ enum GojuonTable {
   /// 表の並び順のまま 1 次元にしたマス。空きマスは nil。
   static let cells: [Character?] = rows.flatMap { $0 }
 }
+
+/// 五十音表を並べる時の余白と、そこから決まる 1 マスの幅。
+///
+/// 子ども向けの最小タップ領域 60pt (documents/design/README.md「6. スタイルトークン > 形」) を
+/// 画面の狭い端末でも満たせる値にする (`MojiZukanTests` で検証する)。
+enum GojuonLayout {
+  /// 表のカードを画面の左右から離す幅。他の要素 (20pt) より詰めて、マスの幅を優先する
+  static let cardHorizontalPadding: CGFloat = 10
+  /// カードの内側の余白
+  static let cardInnerPadding: CGFloat = 6
+  /// マスどうしの間隔
+  static let cellSpacing: CGFloat = 4
+
+  /// 画面の幅から 1 マスの幅を求める。
+  static func cellWidth(screenWidth: CGFloat) -> CGFloat {
+    let columnCount = CGFloat(GojuonTable.columnCount)
+    let usedWidth =
+      cardHorizontalPadding * 2 + cardInnerPadding * 2 + cellSpacing * (columnCount - 1)
+    return (screenWidth - usedWidth) / columnCount
+  }
+}

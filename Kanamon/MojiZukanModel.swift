@@ -65,6 +65,14 @@ final class MojiZukanModel {
     PokemonCharacterSearch.pokemon(containing: character, in: pokemons)
   }
 
+  /// 保存済みの文字の進捗とゲット状況だけを読み直す。ポケモン一覧の再取得は行わない。
+  ///
+  /// よみれんしゅう等へ進んで文字を読めた状態で戻った時に、表と進捗表示を追随させるために使う。
+  func reloadProgress() {
+    readCharacters = (try? learningProgressStore.readCharacters()) ?? readCharacters
+    caughtPokemonIDs = (try? learningProgressStore.caughtPokemonIDs()) ?? caughtPokemonIDs
+  }
+
   /// 文字の進捗・ゲット状況・ポケモン一覧を読み込む。同じ保存内容に対して何度呼んでも同じ結果になる。
   func load() async {
     state = .loading
