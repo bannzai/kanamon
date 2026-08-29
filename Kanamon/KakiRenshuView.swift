@@ -1,0 +1,665 @@
+import SwiftUI
+
+/// かきれんしゅう画面で使う色。`documents/design/README.md`「6. スタイルトークン」の値をそのまま持つ。
+enum KakiRenshuStyle {
+  /// #33241A
+  static let ink = Color(red: 0.200, green: 0.141, blue: 0.102)
+  /// #FFF6E3
+  static let paper = Color(red: 1.000, green: 0.965, blue: 0.890)
+  /// #EAFBEE (かき画面の地の色)
+  static let background = Color(red: 0.918, green: 0.984, blue: 0.933)
+  /// #4CC66A
+  static let green = Color(red: 0.298, green: 0.776, blue: 0.416)
+  /// #2BA9FF
+  static let blue = Color(red: 0.169, green: 0.663, blue: 1.000)
+  /// #FFC22E
+  static let yellow = Color(red: 1.000, green: 0.761, blue: 0.180)
+  /// #D93B2B
+  static let red = Color(red: 0.851, green: 0.231, blue: 0.169)
+  /// #E0D3BA (お手本の薄い線)
+  static let ghost = Color(red: 0.878, green: 0.827, blue: 0.729)
+  /// #E4D9C4 (十字のガイド線)
+  static let guideLine = Color(red: 0.894, green: 0.851, blue: 0.769)
+  /// #E9DFCC (書き終えた画の番号)
+  static let pastNumber = Color(red: 0.914, green: 0.874, blue: 0.800)
+  /// #A8977A
+  static let sand = Color(red: 0.659, green: 0.592, blue: 0.478)
+}
+
+/// かきれんしゅう画面。名前の文字を 1 文字ずつ、書き順の番号と進行方向の矢印に沿ってなぞる。
+///
+/// 失敗しても書いた画を消さず、回数制限も減点も設けない (`documents/design/README.md`「4. かきれんしゅう」)。
+struct KakiRenshuView: View {
+  @Environment(\.modelContext) private var modelContext
+  @State private var model = KakiRenshuModel()
+  /// なぞっている最中の軌跡 (109 座標系)。
+  @State private var tracePoints: [CGPoint] = []
+  /// 「かきじゅん を みる」で描いている画の番号。再生していなければ nil。
+  @State private var demoStrokeIndex: Int?
+  /// 再生中の画をどこまで描いたか (0...1)。
+  @State private var demoProgress: CGFloat = 0
+  @State private var demoTask: Task<Void, Never>?
+
+  var body: some View {
+    ZStack {
+      KakiRenshuStyle.background.ignoresSafeArea()
+      content
+      if let caughtPokemon = model.caughtPokemon {
+        CaughtCelebrationView(pokemon: caughtPokemon) {
+          model.dismissCaughtPokemon()
+        }
+        .transition(.opacity)
+      }
+    }
+    .navigationTitle("かきれんしゅう")
+    .navigationBarTitleDisplayMode(.inline)
+    .task {
+      await model.load(modelContext: modelContext)
+    }
+    .onDisappear {
+      demoTask?.cancel()
+      SpeechReader.shared.stop()
+    }
+  }
+
+  @ViewBuilder
+  private var content: some View {
+    switch model.phase {
+    case .loading:
+      VStack(spacing: 16) {
+        ProgressView()
+          .controlSize(.large)
+        Text(KakiRenshuMessage.loading)
+          .font(.system(size: 22, weight: .bold, design: .rounded))
+      }
+    case .failure:
+      Text(model.message)
+        .font(.system(size: 22, weight: .bold, design: .rounded))
+        .multilineTextAlignment(.center)
+        .padding(24)
+    case .tracing:
+      tracingContent
+    }
+  }
+
+  private var tracingContent: some View {
+    VStack(spacing: 11) {
+      nameRow
+      traceFace
+      Text(model.message)
+        .font(.system(size: 17, weight: .heavy, design: .rounded))
+        .foregroundStyle(KakiRenshuStyle.ink)
+        .multilineTextAlignment(.center)
+        .lineLimit(2)
+        .minimumScaleFactor(0.6)
+        .frame(maxWidth: .infinity)
+      actionButtons
+      pokemonSwitcher
+      attribution
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+  }
+
+  private var nameRow: some View {
+    HStack(spacing: 12) {
+      if let currentPokemon = model.currentPokemon {
+        PokemonSpriteImage(pokemon: currentPokemon)
+          .frame(width: 56, height: 56)
+      }
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 4) {
+          ForEach(Array(model.characters.enumerated()), id: \.offset) { index, character in
+            Button {
+              model.selectCharacter(at: index)
+            } label: {
+              NameCharacterLabel(
+                character: character,
+                isCurrent: index == model.characterIndex,
+                isWritten: model.isWritten(character)
+              )
+            }
+            .buttonStyle(.plain)
+          }
+        }
+      }
+      Text("\(model.characterIndex + 1) / \(max(model.characters.count, 1))")
+        .font(.system(size: 15, weight: .heavy, design: .rounded))
+        .foregroundStyle(KakiRenshuStyle.ink)
+    }
+    .padding(10)
+    .background(KakiRenshuStyle.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 20, style: .continuous)
+        .stroke(KakiRenshuStyle.ink, lineWidth: 5)
+    )
+  }
+
+  private var traceFace: some View {
+    GeometryReader { proxy in
+      let side = min(proxy.size.width, proxy.size.height)
+      TraceCanvas(
+        strokes: model.strokes,
+        strokeIndex: model.strokeIndex,
+        tracePoints: tracePoints,
+        demoStrokeIndex: demoStrokeIndex,
+        demoProgress: demoProgress,
+        side: side,
+        onTracePoint: { point in
+          guard demoStrokeIndex == nil else {
+            return
+          }
+          tracePoints.append(point)
+        },
+        onTraceEnd: {
+          guard demoStrokeIndex == nil else {
+            return
+          }
+          let trace = tracePoints
+          tracePoints = []
+          model.finishTrace(trace)
+        }
+      )
+      .frame(width: side, height: side)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+    .aspectRatio(1, contentMode: .fit)
+    .phaseAnimator([0.0, -9.0, 9.0, -6.0, 6.0, 0.0], trigger: model.failureCount) { view, offset in
+      view.offset(x: offset)
+    } animation: { _ in
+      .linear(duration: 0.07)
+    }
+  }
+
+  private var actionButtons: some View {
+    HStack(spacing: 10) {
+      Button {
+        playDemo()
+      } label: {
+        Text("かきじゅん を みる")
+          .font(.system(size: 23, weight: .heavy, design: .rounded))
+          .foregroundStyle(.white)
+          .frame(maxWidth: .infinity, minHeight: 84)
+          .background(
+            KakiRenshuStyle.blue,
+            in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+          )
+      }
+      .buttonStyle(.plain)
+      .disabled(model.strokes.isEmpty)
+
+      Button {
+        model.speakCurrentCharacter()
+      } label: {
+        Image(systemName: "speaker.wave.3.fill")
+          .font(.system(size: 32, weight: .bold))
+          .foregroundStyle(KakiRenshuStyle.ink)
+          .frame(width: 84, height: 84)
+          .background(
+            KakiRenshuStyle.yellow,
+            in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+          )
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("よんで もらう")
+    }
+  }
+
+  private var pokemonSwitcher: some View {
+    HStack {
+      Button {
+        model.showPokemon(offsetBy: -1)
+      } label: {
+        Image(systemName: "chevron.left")
+          .font(.system(size: 24, weight: .black))
+          .foregroundStyle(KakiRenshuStyle.ink)
+          .frame(width: 60, height: 60)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("まえ の モンスター")
+
+      Spacer()
+      Text("ほかの モンスター の なまえ")
+        .font(.system(size: 14, weight: .heavy, design: .rounded))
+        .foregroundStyle(KakiRenshuStyle.ink.opacity(0.65))
+      Spacer()
+
+      Button {
+        model.showPokemon(offsetBy: 1)
+      } label: {
+        Image(systemName: "chevron.right")
+          .font(.system(size: 24, weight: .black))
+          .foregroundStyle(KakiRenshuStyle.ink)
+          .frame(width: 60, height: 60)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("つぎ の モンスター")
+    }
+  }
+
+  /// KanjiVG は CC BY-SA 3.0 のため、書き順データの帰属を画面に出す。
+  private var attribution: some View {
+    VStack(spacing: 2) {
+      Text(KakiRenshuAttribution.text)
+      Link(KakiRenshuAttribution.projectURL.absoluteString, destination: KakiRenshuAttribution.projectURL)
+      Link(KakiRenshuAttribution.licenseURL.absoluteString, destination: KakiRenshuAttribution.licenseURL)
+    }
+    .font(.system(size: 10, weight: .medium))
+    .foregroundStyle(KakiRenshuStyle.sand)
+    .multilineTextAlignment(.center)
+  }
+
+  private func playDemo() {
+    demoTask?.cancel()
+    demoTask = Task {
+      for index in model.strokes.indices {
+        let duration = max(0.36, Double(model.strokes[index].totalLength) * 0.013)
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+          demoStrokeIndex = index
+          demoProgress = 0
+        }
+        withAnimation(.easeInOut(duration: duration)) {
+          demoProgress = 1
+        }
+        try? await Task.sleep(for: .seconds(duration + 0.19))
+        guard !Task.isCancelled else {
+          return
+        }
+      }
+
+      try? await Task.sleep(for: .milliseconds(420))
+      guard !Task.isCancelled else {
+        return
+      }
+      demoStrokeIndex = nil
+      demoProgress = 0
+    }
+  }
+}
+
+/// KanjiVG (CC BY-SA 3.0) の帰属表示。ライセンス上の必須表示のため文言と URL を 1 か所にまとめる。
+enum KakiRenshuAttribution {
+  static let text = "かきじゅん の データ: KanjiVG (C) 2009-2011 Ulrich Apel / CC BY-SA 3.0"
+  static let projectURL = URL(string: "http://kanjivg.tagaini.net")!
+  static let licenseURL = URL(string: "http://creativecommons.org/licenses/by-sa/3.0/")!
+}
+
+/// 名前の文字 1 つ分の表示。今なぞっている文字を光らせ、書けた文字を緑にする。
+private struct NameCharacterLabel: View {
+  let character: Character
+  let isCurrent: Bool
+  let isWritten: Bool
+
+  var body: some View {
+    Text(String(character))
+      .font(.system(size: 26, weight: .heavy, design: .rounded))
+      .foregroundStyle(isCurrent ? KakiRenshuStyle.ink : (isWritten ? .white : KakiRenshuStyle.ink))
+      .frame(minWidth: 40, minHeight: 46)
+      .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .stroke(KakiRenshuStyle.ink, lineWidth: 4)
+      )
+  }
+
+  private var background: Color {
+    if isCurrent {
+      return KakiRenshuStyle.yellow
+    }
+    if isWritten {
+      return KakiRenshuStyle.green
+    }
+
+    return KakiRenshuStyle.paper
+  }
+}
+
+/// なぞり面。お手本・書けた画・書き順の番号・進行方向の矢印・なぞっている線を重ねて描く。
+private struct TraceCanvas: View {
+  let strokes: [StrokePath]
+  let strokeIndex: Int
+  let tracePoints: [CGPoint]
+  let demoStrokeIndex: Int?
+  let demoProgress: CGFloat
+  let side: CGFloat
+  let onTracePoint: (CGPoint) -> Void
+  let onTraceEnd: () -> Void
+
+  private var scale: CGFloat { side / StrokePath.canvasSize }
+
+  var body: some View {
+    ZStack(alignment: .topLeading) {
+      KakiRenshuStyle.paper
+
+      guideGrid
+      ghostStrokes
+      writtenStrokes
+      demoStroke
+      liveTrace
+
+      ForEach(strokes.indices, id: \.self) { index in
+        StrokeNumberBadge(
+          stroke: strokes[index],
+          number: index + 1,
+          isCurrent: index == strokeIndex && demoStrokeIndex == nil,
+          isWritten: index < strokeIndex,
+          scale: scale
+        )
+      }
+
+      if demoStrokeIndex == nil, strokes.indices.contains(strokeIndex) {
+        StrokeDirectionArrow(stroke: strokes[strokeIndex], scale: scale)
+          .frame(width: side, height: side, alignment: .topLeading)
+      }
+    }
+    .frame(width: side, height: side)
+    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 26, style: .continuous)
+        .stroke(KakiRenshuStyle.ink, lineWidth: 6)
+    )
+    .contentShape(Rectangle())
+    .gesture(
+      DragGesture(minimumDistance: 0)
+        .onChanged { value in
+          onTracePoint(CGPoint(x: value.location.x / scale, y: value.location.y / scale))
+        }
+        .onEnded { _ in
+          onTraceEnd()
+        }
+    )
+  }
+
+  private var guideGrid: some View {
+    ScaledPath(
+      content: scaled(
+        Path { path in
+          path.move(to: CGPoint(x: 54.5, y: 4))
+          path.addLine(to: CGPoint(x: 54.5, y: 105))
+          path.move(to: CGPoint(x: 4, y: 54.5))
+          path.addLine(to: CGPoint(x: 105, y: 54.5))
+        }
+      )
+    )
+    .stroke(KakiRenshuStyle.guideLine, style: StrokeStyle(lineWidth: scale, dash: [4 * scale, 4 * scale]))
+    .frame(width: side, height: side, alignment: .topLeading)
+  }
+
+  private var ghostStrokes: some View {
+    ScaledPath(content: scaled(combinedPath(of: strokes)))
+      .stroke(
+        KakiRenshuStyle.ghost,
+        style: StrokeStyle(lineWidth: 5.5 * scale, lineCap: .round, lineJoin: .round)
+      )
+      .frame(width: side, height: side, alignment: .topLeading)
+  }
+
+  private var writtenStrokes: some View {
+    ScaledPath(content: scaled(combinedPath(of: Array(strokes.prefix(strokeIndex)))))
+      .stroke(
+        KakiRenshuStyle.ink,
+        style: StrokeStyle(lineWidth: 5.5 * scale, lineCap: .round, lineJoin: .round)
+      )
+      .frame(width: side, height: side, alignment: .topLeading)
+  }
+
+  @ViewBuilder
+  private var demoStroke: some View {
+    if let demoStrokeIndex, strokes.indices.contains(demoStrokeIndex) {
+      ScaledPath(content: scaled(Path(strokes[demoStrokeIndex].cgPath)))
+        .trim(from: 0, to: demoProgress)
+        .stroke(
+          KakiRenshuStyle.blue,
+          style: StrokeStyle(lineWidth: 6 * scale, lineCap: .round, lineJoin: .round)
+        )
+        .frame(width: side, height: side, alignment: .topLeading)
+    }
+  }
+
+  @ViewBuilder
+  private var liveTrace: some View {
+    if tracePoints.count >= 2 {
+      ScaledPath(
+        content: scaled(
+          Path { path in
+            path.addLines(tracePoints)
+          }
+        )
+      )
+      .stroke(
+        KakiRenshuStyle.green.opacity(0.85),
+        style: StrokeStyle(lineWidth: 7 * scale, lineCap: .round, lineJoin: .round)
+      )
+      .frame(width: side, height: side, alignment: .topLeading)
+    }
+  }
+
+  private func combinedPath(of strokes: [StrokePath]) -> Path {
+    var path = Path()
+    for stroke in strokes {
+      path.addPath(Path(stroke.cgPath))
+    }
+
+    return path
+  }
+
+  private func scaled(_ path: Path) -> Path {
+    path.applying(CGAffineTransform(scaleX: scale, y: scale))
+  }
+}
+
+/// 109 座標系で組み立て済みの図形を、置かれた場所の左上を原点にして描く。
+private struct ScaledPath: Shape {
+  let content: Path
+
+  func path(in rect: CGRect) -> Path {
+    content
+  }
+}
+
+/// 書き順の番号。今なぞる画は黄色で脈打ち、書き終えた画は灰色にする。
+private struct StrokeNumberBadge: View {
+  let stroke: StrokePath
+  let number: Int
+  let isCurrent: Bool
+  let isWritten: Bool
+  let scale: CGFloat
+
+  @State private var isPulsing = false
+
+  var body: some View {
+    let center = Self.badgeCenter(of: stroke)
+
+    Text("\(number)")
+      .font(.system(size: 9 * scale, weight: .heavy, design: .rounded))
+      .foregroundStyle(isWritten ? KakiRenshuStyle.sand : KakiRenshuStyle.ink)
+      .frame(width: 14 * scale, height: 14 * scale)
+      .background(background, in: Circle())
+      .overlay(Circle().stroke(borderColor, lineWidth: 2.4 * scale))
+      .scaleEffect(isCurrent && isPulsing ? 1.18 : 1)
+      .position(x: center.x * scale, y: center.y * scale)
+      .onAppear {
+        guard isCurrent else {
+          return
+        }
+        withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) {
+          isPulsing = true
+        }
+      }
+  }
+
+  private var background: Color {
+    if isCurrent {
+      return KakiRenshuStyle.yellow
+    }
+    if isWritten {
+      return KakiRenshuStyle.pastNumber
+    }
+
+    return .white
+  }
+
+  private var borderColor: Color {
+    isWritten ? KakiRenshuStyle.sand : KakiRenshuStyle.ink
+  }
+
+  /// 画の書き出しから、進行方向と逆に 10 ずらした位置。線と番号が重ならないようにする。
+  static func badgeCenter(of stroke: StrokePath) -> CGPoint {
+    let start = stroke.startPoint
+    let ahead = stroke.point(atLength: min(stroke.totalLength, 9))
+    let deltaX = start.x - ahead.x
+    let deltaY = start.y - ahead.y
+    let length = max(hypot(deltaX, deltaY), 1)
+
+    return CGPoint(
+      x: min(max(start.x + deltaX / length * 10, 8), 101),
+      y: min(max(start.y + deltaY / length * 10, 8), 101)
+    )
+  }
+}
+
+/// 今なぞる画の上を、書き順の向きへ動き続ける矢印。終点まで行くと少し休んで始点から繰り返す。
+private struct StrokeDirectionArrow: View {
+  let stroke: StrokePath
+  let scale: CGFloat
+
+  /// 画の長さに比例させた 1 往復ぶんの時間。短い画でも速くなりすぎないよう下限を置く。
+  private var duration: Double { max(0.9, Double(stroke.totalLength) * 0.022) }
+  /// 終点で休む時間。
+  private let restDuration = 0.42
+
+  var body: some View {
+    TimelineView(.animation) { context in
+      let cycle = context.date.timeIntervalSinceReferenceDate
+        .truncatingRemainder(dividingBy: duration + restDuration)
+      let isMoving = cycle < duration
+      let length = isMoving ? stroke.totalLength * CGFloat(cycle / duration) : 0
+      let position = stroke.point(atLength: length)
+      let angle = stroke.direction(atLength: length)
+      let arrow = Self.arrowPath(at: position, angle: angle, scale: scale)
+
+      ZStack(alignment: .topLeading) {
+        ScaledPath(content: arrow).fill(KakiRenshuStyle.red)
+        ScaledPath(content: arrow).stroke(.white, lineWidth: 1.2 * scale)
+      }
+      .opacity(isMoving ? 1 : 0)
+    }
+  }
+
+  private static func arrowPath(at position: CGPoint, angle: CGFloat, scale: CGFloat) -> Path {
+    var path = Path()
+    path.move(to: CGPoint(x: 0, y: -5.6))
+    path.addLine(to: CGPoint(x: 9.4, y: 0))
+    path.addLine(to: CGPoint(x: 0, y: 5.6))
+    path.closeSubpath()
+
+    let transform = CGAffineTransform(rotationAngle: angle)
+      .concatenating(CGAffineTransform(translationX: position.x, y: position.y))
+      .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+    return path.applying(transform)
+  }
+}
+
+/// 名前を全部書けた時のゲット演出。ずかんへの登録を子どもに分かる形で見せる。
+private struct CaughtCelebrationView: View {
+  let pokemon: Pokemon
+  let onNext: () -> Void
+
+  @State private var isShining = false
+
+  var body: some View {
+    ZStack {
+      KakiRenshuStyle.ink.opacity(0.55).ignoresSafeArea()
+
+      RaysShape()
+        .fill(KakiRenshuStyle.yellow.opacity(0.8))
+        .rotationEffect(.degrees(isShining ? 360 : 0))
+        .animation(.linear(duration: 24).repeatForever(autoreverses: false), value: isShining)
+        .ignoresSafeArea()
+
+      VStack(spacing: 16) {
+        Text("ゲット！")
+          .font(.system(size: 56, weight: .black, design: .rounded))
+          .foregroundStyle(.white)
+          .shadow(color: KakiRenshuStyle.ink, radius: 0, x: 4, y: 4)
+
+        PokemonSpriteImage(pokemon: pokemon)
+          .frame(width: 180, height: 180)
+
+        VStack(spacing: 6) {
+          Text(pokemon.japaneseName)
+            .font(.system(size: 40, weight: .black, design: .rounded))
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+          Text("ずかん に とうろく したよ")
+            .font(.system(size: 17, weight: .heavy, design: .rounded))
+        }
+        .foregroundStyle(KakiRenshuStyle.ink)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .background(KakiRenshuStyle.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .stroke(KakiRenshuStyle.ink, lineWidth: 6)
+        )
+
+        Button {
+          onNext()
+        } label: {
+          Text("つぎ へ")
+            .font(.system(size: 30, weight: .heavy, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 84)
+            .background(
+              KakiRenshuStyle.red,
+              in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+      }
+      .padding(24)
+    }
+    .onAppear {
+      isShining = true
+    }
+  }
+}
+
+/// ゲット演出の放射状の光。
+private struct RaysShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    let center = CGPoint(x: rect.midX, y: rect.midY)
+    let radius = hypot(rect.width, rect.height)
+    var path = Path()
+    for index in 0..<12 {
+      let angle = Double(index) / 12 * 2 * .pi
+      let spread = 0.11
+      path.move(to: center)
+      path.addLine(
+        to: CGPoint(
+          x: center.x + cos(angle - spread) * radius,
+          y: center.y + sin(angle - spread) * radius
+        )
+      )
+      path.addLine(
+        to: CGPoint(
+          x: center.x + cos(angle + spread) * radius,
+          y: center.y + sin(angle + spread) * radius
+        )
+      )
+      path.closeSubpath()
+    }
+
+    return path
+  }
+}
+
+#Preview {
+  NavigationStack {
+    KakiRenshuView()
+  }
+  .modelContainer(PersistenceController(isStoredInMemoryOnly: true).container)
+}

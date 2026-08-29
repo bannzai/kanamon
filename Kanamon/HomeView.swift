@@ -24,6 +24,11 @@ struct HomeMenuItem: Identifiable {
       title = "よみれんしゅう"
       systemImage = "speaker.wave.3.fill"
       tint = Color(red: 0.72, green: 0.35, blue: 0.02)
+    case .kakiRenshu:
+      title = "かきれんしゅう"
+      systemImage = "pencil.and.outline"
+      // デザインのかき色 (#4CC66A) は白文字とのコントラストが 2.2:1 しかないため、同系の濃い緑にする
+      tint = Color(red: 0.13, green: 0.45, blue: 0.16)
     case .quiz:
       title = "クイズ"
       systemImage = "star.fill"
@@ -53,7 +58,12 @@ struct HomeView: View {
       .background(Color(.systemGroupedBackground))
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
-        PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        switch destination {
+        case .kakiRenshu:
+          KakiRenshuView()
+        case .zukan, .yomiRenshu, .quiz:
+          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        }
       }
     }
   }
