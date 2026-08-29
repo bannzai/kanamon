@@ -2,6 +2,8 @@
 tmp/
 xcuserdata/
 .envrc
+# simtunnel mcp-config が worktree ごとに書き込む接続設定 (セッション固有のためコミットしない)
+.mcp.json
 
 # デザインのプロトタイプ (実行するとポケモンの画像・名前が表示されるため public に置かない)
 # 実体はプロジェクトディレクトリの documents/design/prototype.html に置く
