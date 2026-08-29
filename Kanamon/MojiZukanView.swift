@@ -13,7 +13,6 @@ enum MojiZukanText {
   static let noPokemon = "この もじ が つく モンスター は まだ いないよ"
   static let notCaughtHint = "クイズ で あてると なまえ が わかるよ"
   static let unknownName = "？？？"
-  static let yomiRenshu = "よみれんしゅう"
   static let close = "とじる"
 
   static func sheetTitle(character: Character) -> String {
@@ -26,7 +25,7 @@ enum MojiZukanText {
 
   /// 画面に出す固定の文言 (文字数で変わらないもの) の一覧。
   static let all: [String] = [
-    title, description, loading, loadFailed, noPokemon, notCaughtHint, unknownName, yomiRenshu, close,
+    title, description, loading, loadFailed, noPokemon, notCaughtHint, unknownName, close,
   ]
 }
 
@@ -98,9 +97,8 @@ struct MojiZukanView: View {
     // クイズ画面と同じく、確定デザインの画面ごとの地の色を使う
     .background(MojiZukanColor.background)
     .toolbar(.hidden, for: .navigationBar)
-    .navigationDestination(for: YomiRenshuDestination.self) { _ in
-      // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える
-      PlaceholderView(title: MojiZukanText.yomiRenshu)
+    .navigationDestination(for: YomiRenshuDestination.self) { destination in
+      YomiRenshuView(initialPokemonID: destination.pokemonID)
     }
     // よみれんしゅう等から戻った時にも表と進捗を追随させるため、遷移の深さが変わるたびに読み直す
     .task(id: path.count) {

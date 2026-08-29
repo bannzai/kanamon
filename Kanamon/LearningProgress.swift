@@ -68,6 +68,13 @@ final class LearningProgressStore {
     }
   }
 
+  /// 保存に失敗した変更を捨てて、コンテキストを保存済みの状態へ戻す。
+  ///
+  /// 失敗した変更を残すと、次の保存に巻き込まれて意図せず永続化されるため。
+  func discardUnsavedChanges() {
+    modelContext.rollback()
+  }
+
   func markRead(character: Character) throws {
     let entry = try progressEntry(for: character)
     if !entry.hasRead {

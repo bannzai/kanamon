@@ -142,10 +142,19 @@ final class QuizModel {
       saved = true
       caughtPokemonIDs.insert(pokemon.id)
     } catch {
+      // 保存できなかったゲット情報を未保存のまま残すと、後続の markRead の保存に
+      // 巻き込まれて永続化され、画面の表示 (とうろく していない) と食い違うため捨てる。
+      learningProgressStore.discardUnsavedChanges()
       saved = false
     }
     for character in Gojuon.readableCharacters(in: pokemon.japaneseName) {
-      try? learningProgressStore.markRead(character: character)
+      do {
+        try learningProgressStore.markRead(character: character)
+      } catch {
+        // 保存できなかった文字を未保存のまま残すと、次の保存に巻き込まれて永続化されるため捨てる。
+        // 読めた文字は同じ文字に別のポケモンで出会った時に記録し直せるので、遊びは止めない。
+        learningProgressStore.discardUnsavedChanges()
+      }
     }
 
     result = QuizResult(pokemon: pokemon, isNewCatch: notCaughtYet && saved)

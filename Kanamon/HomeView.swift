@@ -153,14 +153,16 @@ struct HomeView: View {
         switch destination {
         case .zukan:
           PokedexView()
+        case .yomiRenshu:
+          YomiRenshuView()
         case .quiz:
           QuizView()
         case .kakiRenshu:
           KakiRenshuView()
+        case .namaeZukuri:
+          NameBuilderView()
         case .mojiZukan:
           MojiZukanView(path: $navigationPath)
-        case .yomiRenshu, .namaeZukuri:
-          PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
       // クイズ等でゲットしてから戻った時にも数え直すため、遷移の深さが変わるたびに読み直す。
