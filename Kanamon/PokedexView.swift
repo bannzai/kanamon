@@ -29,6 +29,9 @@ struct PokedexView: View {
         ProgressView()
       }
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // NavigationStack は自前の地の色 (白) を敷くため、画面ごとにクリームを塗り直す
+    .background(DesignColor.cream)
     .toolbar(.hidden, for: .navigationBar)
     .navigationDestination(for: YomiRenshuDestination.self) { _ in
       // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える

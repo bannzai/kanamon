@@ -32,6 +32,8 @@ struct PlaceholderView: View {
     }
     .padding(20)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // NavigationStack は自前の地の色 (白) を敷くため、画面ごとにクリームを塗り直す
+    .background(DesignColor.cream)
     .toolbar(.hidden, for: .navigationBar)
   }
 }

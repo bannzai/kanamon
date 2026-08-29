@@ -128,6 +128,8 @@ struct HomeView: View {
       }
       .padding(20)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
+      // NavigationStack は自前の地の色 (白) を敷くため、画面ごとにクリームを塗り直す
+      .background(DesignColor.cream)
       .toolbar(.hidden, for: .navigationBar)
       .navigationDestination(for: AppDestination.self) { destination in
         switch destination {
@@ -244,7 +246,10 @@ private struct HomeMenuButtonLabel: View {
       Spacer(minLength: 0)
     }
     .padding(.horizontal, 14)
-    .frame(maxWidth: .infinity, minHeight: 86, maxHeight: .infinity)
+    // 高さは画面いっぱいまで伸ばして 6 つで等分する。プロトタイプの 86 を下限にすると
+    // 筐体と safe area に削られた画面 (iPhone 16 Pro で約 695pt) に収まらずはみ出すため、
+    // 下限は確定デザインのタップ領域の最小値 (README「6. スタイルトークン > 形」) の 60 にする
+    .frame(maxWidth: .infinity, minHeight: 60, maxHeight: .infinity)
     .background(item.tint)
     .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
     .overlay(
