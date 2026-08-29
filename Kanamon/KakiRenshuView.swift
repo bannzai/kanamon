@@ -296,10 +296,14 @@ struct KakiRenshuView: View {
 
   /// KanjiVG は CC BY-SA 3.0 のため、書き順データの帰属を画面に出す。
   private var attribution: some View {
+    // なぞり面を少しでも大きく取るため、帰属表示は 2 行に収める
     VStack(spacing: 2) {
       Text(KakiRenshuAttribution.text)
-      Link(KakiRenshuAttribution.projectURL.absoluteString, destination: KakiRenshuAttribution.projectURL)
-      Link(KakiRenshuAttribution.licenseURL.absoluteString, destination: KakiRenshuAttribution.licenseURL)
+      HStack(spacing: 10) {
+        Link(KakiRenshuAttribution.projectName, destination: KakiRenshuAttribution.projectURL)
+        Link(KakiRenshuAttribution.licenseName, destination: KakiRenshuAttribution.licenseURL)
+      }
+      .underline()
     }
     .font(.system(size: 10, weight: .medium))
     .foregroundStyle(DesignColor.sandDark)
@@ -353,6 +357,8 @@ struct KakiRenshuView: View {
 /// KanjiVG (CC BY-SA 3.0) の帰属表示。ライセンス上の必須表示のため文言と URL を 1 か所にまとめる。
 enum KakiRenshuAttribution {
   static let text = "かきじゅん の データ: KanjiVG (C) 2009-2011 Ulrich Apel / CC BY-SA 3.0"
+  static let projectName = "kanjivg.tagaini.net"
+  static let licenseName = "CC BY-SA 3.0"
   static let projectURL = URL(string: "http://kanjivg.tagaini.net")!
   static let licenseURL = URL(string: "http://creativecommons.org/licenses/by-sa/3.0/")!
 }
