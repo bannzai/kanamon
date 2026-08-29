@@ -56,15 +56,31 @@ struct MojiZukanView: View {
   @State private var selection: MojiZukanSelection?
 
   var body: some View {
-    VStack(spacing: 14) {
-      header
+    ZStack {
+      VStack(spacing: 14) {
+        header
 
-      if let model {
-        progressCard(model: model)
-        gojuonCard(model: model)
-      } else {
-        ProgressView()
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        if let model {
+          progressCard(model: model)
+          gojuonCard(model: model)
+        } else {
+          ProgressView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+      }
+
+      // 逆引きは OS のシートではなく画面の中に重ねる。OS のシートはウインドウが出すため、
+      // ContentView が敷いた図鑑の筐体の上にかぶさって「図鑑にはめ込まれた画面」の構図が崩れる
+      if let selection, let model {
+        CharacterPokemonSheet(
+          character: selection.character,
+          model: model,
+          onClose: { close() },
+          onSelect: { pokemon in
+            close()
+            path.append(YomiRenshuDestination(pokemonID: pokemon.id))
+          }
+        )
       }
     }
     .padding(20)
@@ -88,17 +104,17 @@ struct MojiZukanView: View {
         await model.load()
       }
     }
-    .sheet(item: $selection) { selection in
-      if let model {
-        CharacterPokemonSheet(
-          character: selection.character,
-          model: model,
-          onSelect: { pokemon in
-            self.selection = nil
-            path.append(YomiRenshuDestination(pokemonID: pokemon.id))
-          }
-        )
-      }
+  }
+
+  private func open(character: Character) {
+    withAnimation(.easeOut(duration: 0.22)) {
+      selection = MojiZukanSelection(character: character)
+    }
+  }
+
+  private func close() {
+    withAnimation(.easeOut(duration: 0.22)) {
+      selection = nil
     }
   }
 
@@ -156,7 +172,7 @@ struct MojiZukanView: View {
         ForEach(Array(GojuonTable.cells.enumerated()), id: \.offset) { _, character in
           if let character {
             Button {
-              selection = MojiZukanSelection(character: character)
+              open(character: character)
               SpeechSynthesizer.shared.speak(String(character))
             } label: {
               GojuonCell(character: character, isRead: model.isRead(character))
@@ -233,15 +249,32 @@ private struct MojiZukanProgressBar: View {
 private struct CharacterPokemonSheet: View {
   let character: Character
   let model: MojiZukanModel
+  let onClose: () -> Void
   let onSelect: (Pokemon) -> Void
 
-  @Environment(\.dismiss) private var dismiss
+  /// カードが画面を覆う高さの上限 (documents/design/README.md のプロトタイプの 74%)。
+  private static let maximumHeightRatio = 0.74
 
   private var pokemon: [Pokemon] {
     model.pokemons(containing: character)
   }
 
   var body: some View {
+    ZStack(alignment: .bottom) {
+      DesignColor.ink.opacity(0.42)
+        .onTapGesture { onClose() }
+
+      GeometryReader { proxy in
+        card
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .frame(maxHeight: proxy.size.height * Self.maximumHeightRatio, alignment: .bottom)
+          .frame(maxHeight: .infinity, alignment: .bottom)
+      }
+    }
+    .transition(.opacity)
+  }
+
+  private var card: some View {
     VStack(alignment: .leading, spacing: 12) {
       header
       ScrollView {
@@ -278,10 +311,12 @@ private struct CharacterPokemonSheet: View {
       }
     }
     .padding(16)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(DesignColor.cream)
-    .presentationDetents([.fraction(0.74), .large])
-    .presentationDragIndicator(.visible)
+    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous))
+    .overlay(
+      UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
+        .strokeBorder(DesignColor.ink, lineWidth: 5)
+    )
   }
 
   /// ポケモンが 1 匹も並ばない理由 (読み込み中 / 読み込み失敗 / 該当なし) を出す。
@@ -324,7 +359,7 @@ private struct CharacterPokemonSheet: View {
 
       // 下へ引いて閉じる操作は子どもには難しいため、押して閉じるボタンも出す。
       Button {
-        dismiss()
+        onClose()
       } label: {
         Image(systemName: "xmark")
           .font(.system(size: 22, weight: .heavy))
