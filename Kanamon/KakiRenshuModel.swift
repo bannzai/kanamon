@@ -13,6 +13,7 @@ enum KakiRenshuMessage {
   static let strokeLoadFailed = "かきじゅん を よみこめません  つうしん を たしかめて もじ を タップ してね"
   static let nameWritten = "ぜんぶ かけたね！"
   static let registerFailed = "とうろく できなかったよ  もう いちど ためして ね"
+  static let registering = "とうろく して いるよ…"
   static let loadFailed = "つうしん が できません  もう いちど ためして ね"
   static let retry = "もう いちど"
 
@@ -196,6 +197,25 @@ final class KakiRenshuModel {
     return true
   }
 
+  /// ずかんへの登録に失敗した時に、同じポケモンのまま保存をやり直す。
+  ///
+  /// 失敗したまま次のポケモンへ進むと、書き終えた名前の進捗だけが残らないため、演出の中から取り直せるようにする。
+  func retryRegistration() {
+    guard let result, !result.isRegistered else {
+      return
+    }
+
+    do {
+      try progressStore?.markPokemonCaught(id: result.pokemon.id)
+    } catch {
+      message = KakiRenshuMessage.registerFailed
+      return
+    }
+
+    message = KakiRenshuMessage.nameWritten
+    self.result = KakiRenshuResult(pokemon: result.pokemon, isRegistered: true)
+  }
+
   /// ゲット演出を閉じて、次のポケモンの名前へ進む。
   func dismissResult() {
     result = nil
@@ -321,6 +341,8 @@ final class KakiRenshuModel {
     }
 
     guard let parsed = try? KanjiVGStrokeParser.strokes(from: data), !parsed.isEmpty else {
+      // 取得はできたが中身を読めなかった。壊れたファイルを以後も使い続けないようキャッシュから捨てる
+      try? await strokeCache.removeStrokeData(for: character)
       return .temporaryFailure
     }
 

@@ -23,6 +23,7 @@ enum KakiRenshuText {
   static let previousPokemon = "まえ の モンスター"
   static let nextPokemon = "つぎ の モンスター"
   static let next = "つぎ へ"
+  static let retryRegistration = "もう いちど とうろく"
   static let caught = "ゲット！"
   static let written = "かけたね！"
   static let registered = "ずかん に とうろく したよ"
@@ -31,7 +32,7 @@ enum KakiRenshuText {
   /// 画面に出すすべての文言。かなだけで書けているかをテストで検証するために並べる。
   static let all: [String] = [
     title, playStrokeOrder, speak, otherPokemon, previousPokemon, nextPokemon,
-    next, caught, written, registered, notRegistered,
+    next, retryRegistration, caught, written, registered, notRegistered,
   ]
 }
 
@@ -61,10 +62,15 @@ struct KakiRenshuView: View {
       .padding(.vertical, 12)
 
       if let result = model.result {
-        CaughtCelebrationView(result: result, imageCache: model.imageCache) {
-          stopDemo()
-          model.dismissResult()
-        }
+        CaughtCelebrationView(
+          result: result,
+          imageCache: model.imageCache,
+          onRetryRegistration: { model.retryRegistration() },
+          onNext: {
+            stopDemo()
+            model.dismissResult()
+          }
+        )
         .transition(.opacity)
       }
     }
@@ -75,6 +81,11 @@ struct KakiRenshuView: View {
     .toolbar(.hidden, for: .navigationBar)
     .task {
       await model.load(modelContext: modelContext)
+    }
+    // 最後の画を書き終えてから次の文字へ移るまでの間に再生を始めていても、
+    // 文字が変わった時点で止めて、古い画が新しい面へ描かれないようにする
+    .onChange(of: model.characterIndex) {
+      stopDemo()
     }
     .onDisappear {
       stopDemo()
@@ -157,6 +168,8 @@ struct KakiRenshuView: View {
       if let currentPokemon = model.currentPokemon {
         PokemonSpriteView(pokemon: currentPokemon, isCaught: true, imageCache: model.imageCache)
           .frame(width: 56, height: 56)
+          // 切り替えた先の画像を取れるまで前のポケモンの絵が残らないよう、ID で identity を分ける
+          .id(currentPokemon.id)
       }
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 4) {
@@ -245,7 +258,8 @@ struct KakiRenshuView: View {
           .frame(maxWidth: .infinity, minHeight: 76)
       }
       .buttonStyle(Self.primaryButtonStyle(background: DesignColor.blue))
-      .disabled(model.strokes.isEmpty)
+      // 最後の画を書き終えた後は次の文字の読み込み待ちのため、その間は再生を始めさせない
+      .disabled(model.strokes.isEmpty || model.strokeIndex >= model.strokes.count)
 
       Button {
         model.speakCurrentCharacter()
@@ -640,6 +654,7 @@ private struct StrokeDirectionArrow: View {
 private struct CaughtCelebrationView: View {
   let result: KakiRenshuResult
   let imageCache: PokemonImageCache?
+  let onRetryRegistration: () -> Void
   let onNext: () -> Void
 
   @State private var isShining = false
@@ -662,6 +677,7 @@ private struct CaughtCelebrationView: View {
 
         PokemonSpriteView(pokemon: result.pokemon, isCaught: true, imageCache: imageCache)
           .frame(width: 180, height: 180)
+          .id(result.pokemon.id)
 
         VStack(spacing: 6) {
           Text(result.pokemon.japaneseName)
@@ -680,6 +696,26 @@ private struct CaughtCelebrationView: View {
           RoundedRectangle(cornerRadius: 26, style: .continuous)
             .stroke(DesignColor.ink, lineWidth: 6)
         )
+
+        // 保存に失敗した時は、同じポケモンのまま取り直せる導線を先に出す
+        if !result.isRegistered {
+          Button {
+            onRetryRegistration()
+          } label: {
+            Text(KakiRenshuText.retryRegistration)
+              .font(.system(size: 26, weight: .black, design: .rounded))
+              .foregroundStyle(DesignColor.paper)
+              .frame(maxWidth: .infinity, minHeight: 76)
+          }
+          .buttonStyle(
+            PokedexCardButtonStyle(
+              background: DesignColor.blue,
+              cornerRadius: 26,
+              borderWidth: 5,
+              shadowHeight: 7
+            )
+          )
+        }
 
         Button {
           onNext()

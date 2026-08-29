@@ -209,6 +209,55 @@ final class KakiRenshuTests: XCTestCase {
     XCTAssertEqual(threshold.samplePointCount, 27)
   }
 
+  // MARK: - 解析できなかったキャッシュの破棄
+
+  /// 中身を読めなかった書き順データをキャッシュに残すと、その文字を二度と練習できなくなる。
+  func testKanjiVGCacheRemovesStoredStrokeDataSoItCanBeFetchedAgain() async throws {
+    let directory = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("tmp", isDirectory: true)
+      .appendingPathComponent("KanjiVGCacheRemoveTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let dataLoader = StrokeDataLoaderStub(data: Data("<svg></svg>".utf8))
+    let cache = try KanjiVGCache(
+      cacheDirectory: directory,
+      dataLoader: dataLoader,
+      baseURL: URL(string: "https://example.com/kanji/")!
+    )
+    let fileURL = directory.appendingPathComponent("030a2.svg")
+
+    _ = try await cache.strokeData(for: "ア")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+
+    try await cache.removeStrokeData(for: "ア")
+    XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+
+    _ = try await cache.strokeData(for: "ア")
+    let requestCount = await dataLoader.requestCount()
+    XCTAssertEqual(requestCount, 2, "キャッシュを捨てた後は取り直せる")
+  }
+
+  /// 取り直しのたびに呼べるよう、削除は何度呼んでも同じ結果になる。
+  func testKanjiVGCacheRemoveStrokeDataIsIdempotent() async throws {
+    let directory = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("tmp", isDirectory: true)
+      .appendingPathComponent("KanjiVGCacheRemoveTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let cache = try KanjiVGCache(
+      cacheDirectory: directory,
+      dataLoader: StrokeDataLoaderStub(data: Data()),
+      baseURL: URL(string: "https://example.com/kanji/")!
+    )
+
+    try await cache.removeStrokeData(for: "ア")
+    try await cache.removeStrokeData(for: "ア")
+  }
+
   // MARK: - 画面
 
   func testKakiRenshuIsReachableFromHome() {
@@ -320,6 +369,26 @@ final class KakiRenshuTests: XCTestCase {
     </g>
     </svg>
     """
+}
+
+/// KanjiVG の代わりに決まったデータを返すテスト用のローダー。
+private actor StrokeDataLoaderStub: HTTPDataLoading {
+  private let responseData: Data
+  private var requests = 0
+
+  init(data: Data) {
+    responseData = data
+  }
+
+  func data(from url: URL) async throws -> (Data, URLResponse) {
+    requests += 1
+    let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+    return (responseData, response)
+  }
+
+  func requestCount() -> Int {
+    requests
+  }
 }
 
 extension String {
