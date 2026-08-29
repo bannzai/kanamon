@@ -22,6 +22,11 @@
 		B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1102 /* HomeView.swift */; };
 		B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */; };
 		B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */; };
+		B27E4D1F6C35029A9F4B2205 /* SimilarKatakana.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1105 /* SimilarKatakana.swift */; };
+		B27E4D1F6C35029A9F4B2206 /* SpeechSynthesizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1106 /* SpeechSynthesizing.swift */; };
+		B27E4D1F6C35029A9F4B2207 /* YomiRenshuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1107 /* YomiRenshuModel.swift */; };
+		B27E4D1F6C35029A9F4B2208 /* YomiRenshuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1108 /* YomiRenshuView.swift */; };
+		B27E4D1F6C35029A9F4B2209 /* YomiRenshuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +57,11 @@
 		A17D3C0E5B24F1908E3A1102 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderView.swift; sourceTree = "<group>"; };
 		A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewTests.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1105 /* SimilarKatakana.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimilarKatakana.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1106 /* SpeechSynthesizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizing.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1107 /* YomiRenshuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuModel.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1108 /* YomiRenshuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuView.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YomiRenshuTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -88,6 +98,10 @@
 				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
 				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
 				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
+				A17D3C0E5B24F1908E3A1105 /* SimilarKatakana.swift */,
+				A17D3C0E5B24F1908E3A1106 /* SpeechSynthesizing.swift */,
+				A17D3C0E5B24F1908E3A1107 /* YomiRenshuModel.swift */,
+				A17D3C0E5B24F1908E3A1108 /* YomiRenshuView.swift */,
 			);
 			path = Kanamon;
 			sourceTree = "<group>";
@@ -98,6 +112,7 @@
 				D58492E064E64E689038BCB2 /* KanamonTests.swift */,
 				200000000000000000000005 /* PokemonDataTests.swift */,
 				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
+				A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */,
 			);
 			path = KanamonTests;
 			sourceTree = "<group>";
@@ -197,6 +212,7 @@
 				779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */,
 				100000000000000000000005 /* PokemonDataTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
+				B27E4D1F6C35029A9F4B2209 /* YomiRenshuTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +231,10 @@
 				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
 				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
+				B27E4D1F6C35029A9F4B2205 /* SimilarKatakana.swift in Sources */,
+				B27E4D1F6C35029A9F4B2206 /* SpeechSynthesizing.swift in Sources */,
+				B27E4D1F6C35029A9F4B2207 /* YomiRenshuModel.swift in Sources */,
+				B27E4D1F6C35029A9F4B2208 /* YomiRenshuView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
