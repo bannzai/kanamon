@@ -17,6 +17,12 @@ final class QuizTests: XCTestCase {
     XCTAssertEqual(Set(Gojuon.characters).count, 46)
   }
 
+  func testReadableCharactersKeepOnlyNormalizedGojuonCharacters() {
+    XCTAssertEqual(Gojuon.readableCharacters(in: "テストモン"), ["テ", "ス", "ト", "モ", "ン"])
+    XCTAssertEqual(Gojuon.readableCharacters(in: "ダミーゴン"), ["タ", "ミ", "コ", "ン"])
+    XCTAssertEqual(Gojuon.readableCharacters(in: "ピョッコ"), ["ヒ", "ヨ", "ツ", "コ"])
+  }
+
   func testPokemonChoicesAreFourUniqueAndContainAnswer() {
     let pokemons = (1...12).map(makePokemon(id:))
 
@@ -124,53 +130,11 @@ final class QuizTests: XCTestCase {
     }
   }
 
-  func testKanaNormalizerRemovesMarksAndEnlargesSmallKana() {
-    XCTAssertEqual(KanaNormalizer.base(of: "ピ"), "ヒ")
-    XCTAssertEqual(KanaNormalizer.base(of: "ャ"), "ヤ")
-    XCTAssertEqual(KanaNormalizer.base(of: "ッ"), "ツ")
-    XCTAssertEqual(KanaNormalizer.base(of: "ガ"), "カ")
-    XCTAssertEqual(KanaNormalizer.base(of: "ヴ"), "ウ")
-    XCTAssertEqual(KanaNormalizer.base(of: "ア"), "ア")
-    XCTAssertEqual(KanaNormalizer.base(of: "ー"), "ー")
-  }
-
-  func testReadableKanaKeepsOnlyGojuonCharacters() {
-    XCTAssertEqual(KanaNormalizer.readableKana(in: "テストモン"), ["テ", "ス", "ト", "モ", "ン"])
-    XCTAssertEqual(KanaNormalizer.readableKana(in: "ダミーゴン"), ["タ", "ミ", "コ", "ン"])
-    XCTAssertFalse(KanaNormalizer.readableKana(in: "ダミーゴン").contains("ー"))
-  }
-
-  @MainActor
-  func testCaughtPokemonStoreSavesIdempotently() throws {
-    let context = ModelContext(try makeContainer())
-    let store = CaughtPokemonStore(modelContext: context)
-
-    try store.markCaught(pokemonID: 1)
-    try store.markCaught(pokemonID: 1)
-    try store.markCaught(pokemonID: 2)
-
-    XCTAssertEqual(try store.caughtPokemonIDs(), [1, 2])
-    XCTAssertEqual(try context.fetch(FetchDescriptor<CaughtPokemon>()).count, 2)
-  }
-
-  @MainActor
-  func testReadKanaStoreSavesNormalizedKanaIdempotently() throws {
-    let context = ModelContext(try makeContainer())
-    let store = ReadKanaStore(modelContext: context)
-
-    try store.markRead(name: "ダミーゴン")
-    try store.markRead(name: "ダミーゴン")
-
-    XCTAssertEqual(try store.readKana(), ["タ", "ミ", "コ", "ン"])
-    XCTAssertEqual(try context.fetch(FetchDescriptor<ReadKana>()).count, 4)
-  }
-
   @MainActor
   func testQuizModelSavesProgressOnCorrectAnswerAndKeepsQuestionOnWrongAnswer() async throws {
     let context = ModelContext(try makeContainer())
-    let caughtPokemonStore = CaughtPokemonStore(modelContext: context)
-    let readKanaStore = ReadKanaStore(modelContext: context)
-    let model = makeModel(context: context, caughtPokemonStore: caughtPokemonStore, readKanaStore: readKanaStore)
+    let store = LearningProgressStore(modelContext: context)
+    let model = makeModel(context: context, store: store)
 
     await model.load()
 
@@ -191,10 +155,10 @@ final class QuizTests: XCTestCase {
     let result = try XCTUnwrap(model.result)
     XCTAssertTrue(result.isNewCatch)
     XCTAssertNil(model.wrongChoiceID)
-    XCTAssertEqual(try caughtPokemonStore.caughtPokemonIDs(), [question.answer.id])
+    XCTAssertEqual(try store.caughtPokemonIDs(), [question.answer.id])
     XCTAssertEqual(
-      try readKanaStore.readKana(),
-      KanaNormalizer.readableKana(in: question.answer.japaneseName)
+      try store.readCharacters(),
+      Gojuon.readableCharacters(in: question.answer.japaneseName)
     )
 
     model.advance()
@@ -208,15 +172,11 @@ final class QuizTests: XCTestCase {
   @MainActor
   func testQuizModelReportsAlreadyCaughtPokemonAsNotNewCatch() async throws {
     let context = ModelContext(try makeContainer())
-    let caughtPokemonStore = CaughtPokemonStore(modelContext: context)
+    let store = LearningProgressStore(modelContext: context)
     for id in 1...6 {
-      try caughtPokemonStore.markCaught(pokemonID: id)
+      try store.markPokemonCaught(id: id)
     }
-    let model = makeModel(
-      context: context,
-      caughtPokemonStore: caughtPokemonStore,
-      readKanaStore: ReadKanaStore(modelContext: context)
-    )
+    let model = makeModel(context: context, store: store)
 
     await model.load()
     let question = try XCTUnwrap(model.question)
@@ -234,8 +194,7 @@ final class QuizTests: XCTestCase {
         dataSource: QuizPokemonDataSourceStub(pokemonByID: [:], failingIDs: [1]),
         pokemonIDs: [1]
       ),
-      caughtPokemonStore: CaughtPokemonStore(modelContext: context),
-      readKanaStore: ReadKanaStore(modelContext: context),
+      learningProgressStore: LearningProgressStore(modelContext: context),
       imageCache: nil
     )
 
@@ -256,17 +215,13 @@ final class QuizTests: XCTestCase {
   private func makeContainer() throws -> ModelContainer {
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
     return try ModelContainer(
-      for: PokemonCacheEntry.self, CaughtPokemon.self, ReadKana.self,
+      for: PokemonCacheEntry.self, CaughtPokemonEntry.self, CharacterProgressEntry.self,
       configurations: configuration
     )
   }
 
   @MainActor
-  private func makeModel(
-    context: ModelContext,
-    caughtPokemonStore: CaughtPokemonStore,
-    readKanaStore: ReadKanaStore
-  ) -> QuizModel {
+  private func makeModel(context: ModelContext, store: LearningProgressStore) -> QuizModel {
     let pokemons = (1...6).map(makePokemon(id:))
     return QuizModel(
       repository: PokemonRepository(
@@ -276,8 +231,7 @@ final class QuizTests: XCTestCase {
         ),
         pokemonIDs: pokemons.map(\.id)
       ),
-      caughtPokemonStore: caughtPokemonStore,
-      readKanaStore: readKanaStore,
+      learningProgressStore: store,
       imageCache: nil
     )
   }

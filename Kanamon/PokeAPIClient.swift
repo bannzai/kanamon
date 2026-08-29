@@ -1,6 +1,6 @@
 import Foundation
 
-/// PokeAPI REST API から日本語名とスプライト URL を取得する。
+/// PokeAPI REST API から日本語名と公式アートワーク URL を取得する。
 struct PokeAPIClient: PokemonDataSource {
   private let session: URLSession
   private let baseURL: URL
@@ -21,11 +21,14 @@ struct PokeAPIClient: PokemonDataSource {
     async let pokemonResponse: PokemonResponse = request(pokemonURL)
     let (species, pokemon) = try await (speciesResponse, pokemonResponse)
 
-    guard let japaneseName = species.names.first(where: { $0.language.name == "ja" })?.name else {
+    guard
+      let japaneseName = species.names.first(where: { $0.language.name == "ja-hrkt" })?.name
+        ?? species.names.first(where: { $0.language.name == "ja" })?.name
+    else {
       throw PokeAPIError.japaneseNameNotFound(id: id)
     }
     guard
-      let spriteURLString = pokemon.sprites.frontDefault,
+      let spriteURLString = pokemon.sprites.other.officialArtwork.frontDefault,
       let spriteURL = URL(string: spriteURLString)
     else {
       throw PokeAPIError.spriteURLNotFound(id: id)
@@ -71,14 +74,28 @@ private struct APIResource: Decodable {
   let name: String
 }
 
-/// pokemon エンドポイントで返される ID とスプライト情報を表す。
+/// pokemon エンドポイントで返される ID と画像情報を表す。
 private struct PokemonResponse: Decodable {
   let id: Int
   let sprites: Sprites
 }
 
-/// 利用する正面スプライトの URL を表す。
+/// PokeAPI の画像種別一覧を表す。
 private struct Sprites: Decodable {
+  let other: OtherSprites
+}
+
+/// 追加の画像種別一覧を表す。
+private struct OtherSprites: Decodable {
+  let officialArtwork: OfficialArtwork
+
+  enum CodingKeys: String, CodingKey {
+    case officialArtwork = "official-artwork"
+  }
+}
+
+/// 利用する公式アートワークの URL を表す。
+private struct OfficialArtwork: Decodable {
   let frontDefault: String?
 
   enum CodingKeys: String, CodingKey {

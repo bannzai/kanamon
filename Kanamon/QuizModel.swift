@@ -31,28 +31,24 @@ final class QuizModel {
   let imageCache: PokemonImageCache?
 
   private let repository: PokemonRepository
-  private let caughtPokemonStore: CaughtPokemonStore
-  private let readKanaStore: ReadKanaStore
+  private let learningProgressStore: LearningProgressStore
   private var pokemons: [Pokemon] = []
   private var caughtPokemonIDs: Set<Int> = []
 
   init(
     repository: PokemonRepository,
-    caughtPokemonStore: CaughtPokemonStore,
-    readKanaStore: ReadKanaStore,
+    learningProgressStore: LearningProgressStore,
     imageCache: PokemonImageCache?
   ) {
     self.repository = repository
-    self.caughtPokemonStore = caughtPokemonStore
-    self.readKanaStore = readKanaStore
+    self.learningProgressStore = learningProgressStore
     self.imageCache = imageCache
   }
 
   convenience init(modelContext: ModelContext) {
     self.init(
       repository: PokemonRepository(modelContext: modelContext),
-      caughtPokemonStore: CaughtPokemonStore(modelContext: modelContext),
-      readKanaStore: ReadKanaStore(modelContext: modelContext),
+      learningProgressStore: LearningProgressStore(modelContext: modelContext),
       imageCache: try? PokemonImageCache()
     )
   }
@@ -69,7 +65,7 @@ final class QuizModel {
   func load() async {
     state = .loading
     do {
-      caughtPokemonIDs = try caughtPokemonStore.caughtPokemonIDs()
+      caughtPokemonIDs = try learningProgressStore.caughtPokemonIDs()
       pokemons = try await repository.loadFirstGeneration()
     } catch {
       state = .failed
@@ -125,7 +121,7 @@ final class QuizModel {
     wrongChoiceID = nil
     mode = mode.next
 
-    if let latest = try? caughtPokemonStore.caughtPokemonIDs() {
+    if let latest = try? learningProgressStore.caughtPokemonIDs() {
       caughtPokemonIDs = latest
     }
     if let next = makeQuestion() {
@@ -139,8 +135,10 @@ final class QuizModel {
 
     let isNewCatch = !caughtPokemonIDs.contains(pokemon.id)
     // 保存に失敗しても出題は続けられるため、クイズを止めずに進める。
-    try? caughtPokemonStore.markCaught(pokemonID: pokemon.id)
-    try? readKanaStore.markRead(name: pokemon.japaneseName)
+    try? learningProgressStore.markPokemonCaught(id: pokemon.id)
+    for character in Gojuon.readableCharacters(in: pokemon.japaneseName) {
+      try? learningProgressStore.markRead(character: character)
+    }
     caughtPokemonIDs.insert(pokemon.id)
 
     result = QuizResult(pokemon: pokemon, isNewCatch: isNewCatch)

@@ -13,8 +13,8 @@
 		100000000000000000000003 /* PokemonData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* PokemonData.swift */; };
 		100000000000000000000004 /* PokemonImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* PokemonImageCache.swift */; };
 		100000000000000000000005 /* PokemonDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* PokemonDataTests.swift */; };
-		100000000000000000000006 /* CaughtPokemon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* CaughtPokemon.swift */; };
-		300000000000000000000001 /* ReadKana.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000001 /* ReadKana.swift */; };
+		100000000000000000000006 /* LearningProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* LearningProgress.swift */; };
+		100000000000000000000007 /* KanjiVGCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* KanjiVGCache.swift */; };
 		300000000000000000000002 /* QuizQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000002 /* QuizQuestion.swift */; };
 		300000000000000000000003 /* QuizModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000003 /* QuizModel.swift */; };
 		300000000000000000000004 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000004 /* QuizView.swift */; };
@@ -46,8 +46,8 @@
 		200000000000000000000003 /* PokemonData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonData.swift; sourceTree = "<group>"; };
 		200000000000000000000004 /* PokemonImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonImageCache.swift; sourceTree = "<group>"; };
 		200000000000000000000005 /* PokemonDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonDataTests.swift; sourceTree = "<group>"; };
-		200000000000000000000006 /* CaughtPokemon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaughtPokemon.swift; sourceTree = "<group>"; };
-		400000000000000000000001 /* ReadKana.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadKana.swift; sourceTree = "<group>"; };
+		200000000000000000000006 /* LearningProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningProgress.swift; sourceTree = "<group>"; };
+		200000000000000000000007 /* KanjiVGCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiVGCache.swift; sourceTree = "<group>"; };
 		400000000000000000000002 /* QuizQuestion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizQuestion.swift; sourceTree = "<group>"; };
 		400000000000000000000003 /* QuizModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizModel.swift; sourceTree = "<group>"; };
 		400000000000000000000004 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
@@ -89,6 +89,8 @@
 				5D917AA35E42ED26847B6BB0 /* Assets.xcassets */,
 				29E985B158F0B7ADD8C5F040 /* ContentView.swift */,
 				200000000000000000000001 /* KatakanaConverter.swift */,
+				200000000000000000000007 /* KanjiVGCache.swift */,
+				200000000000000000000006 /* LearningProgress.swift */,
 				68710977607E0CDF1AED0580 /* KanamonApp.swift */,
 				200000000000000000000002 /* PokeAPIClient.swift */,
 				200000000000000000000003 /* PokemonData.swift */,
@@ -96,8 +98,6 @@
 				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
 				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
 				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
-				200000000000000000000006 /* CaughtPokemon.swift */,
-				400000000000000000000001 /* ReadKana.swift */,
 				400000000000000000000002 /* QuizQuestion.swift */,
 				400000000000000000000003 /* QuizModel.swift */,
 				400000000000000000000004 /* QuizView.swift */,
@@ -222,6 +222,8 @@
 			files = (
 				00570055A10FCBD8D16BDD33 /* ContentView.swift in Sources */,
 				100000000000000000000001 /* KatakanaConverter.swift in Sources */,
+				100000000000000000000007 /* KanjiVGCache.swift in Sources */,
+				100000000000000000000006 /* LearningProgress.swift in Sources */,
 				9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */,
 				100000000000000000000002 /* PokeAPIClient.swift in Sources */,
 				100000000000000000000003 /* PokemonData.swift in Sources */,
@@ -229,8 +231,6 @@
 				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
 				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
-				100000000000000000000006 /* CaughtPokemon.swift in Sources */,
-				300000000000000000000001 /* ReadKana.swift in Sources */,
 				300000000000000000000002 /* QuizQuestion.swift in Sources */,
 				300000000000000000000003 /* QuizModel.swift in Sources */,
 				300000000000000000000004 /* QuizView.swift in Sources */,

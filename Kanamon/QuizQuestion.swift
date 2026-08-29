@@ -20,6 +20,19 @@ enum QuizMode: CaseIterable {
   }
 }
 
+/// 五十音表の 46 文字。あなぬけのダミー選択肢と、読めた文字として記録する対象の判定に使う。
+enum Gojuon {
+  static let characters: [Character] = Array(
+    "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
+  )
+
+  /// 名前のうち、五十音表の 46 文字として読める文字を正規化して返す。「ー」のように五十音表にない文字は含めない。
+  static func readableCharacters(in name: String) -> Set<Character> {
+    let gojuon = Set(characters)
+    return Set(name.map(KatakanaCharacterNormalizer.baseCharacter(from:)).filter(gojuon.contains))
+  }
+}
+
 /// 1 問分の出題内容。
 struct QuizQuestion: Equatable {
   let mode: QuizMode
