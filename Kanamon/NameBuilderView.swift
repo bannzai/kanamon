@@ -23,6 +23,31 @@ enum NameBuilderText {
   ]
 }
 
+/// なまえ づくり画面のレイアウト定数。マスの幅を画面の幅から決めるために、余白の値をここで共有する。
+enum NameBuilderLayout {
+  /// 盤面の外側の余白 (左右)
+  static let boardPadding: CGFloat = 16
+  /// カードの内側の余白 (左右)
+  static let cardPadding: CGFloat = 10
+  /// マスとマスの間隔
+  static let slotSpacing: CGFloat = 7
+  /// タイルとタイルの間隔
+  static let tileSpacing: CGFloat = 8
+  /// マスの幅の上限。プロトタイプの 56pt を基準にし、狭い端末ではここから縮める
+  static let maximumSlotWidth: CGFloat = 56
+
+  /// 名前の文字数ぶんのマスを 1 行に収めるための幅。画面が狭いほど小さくなる。
+  static func slotWidth(screenWidth: CGFloat, slotCount: Int) -> CGFloat {
+    guard slotCount > 0, screenWidth > 0 else {
+      return maximumSlotWidth
+    }
+
+    let contentWidth = screenWidth - (boardPadding + cardPadding) * 2
+    let spacingWidth = slotSpacing * CGFloat(slotCount - 1)
+    return min(maximumSlotWidth, max(32, (contentWidth - spacingWidth) / CGFloat(slotCount)))
+  }
+}
+
 /// なまえ づくり画面のデザイントークン。共通の色は `DesignColor` を使い、この画面だけの色をここに置く。
 enum NameBuilderColor {
   /// 画面の地の色。
@@ -115,14 +140,18 @@ private struct NameBuilderContentView: View {
     // 収まる端末では上寄せにならないよう、画面の高さぶんの枠に入れて中央へ置く。
     GeometryReader { proxy in
       ScrollView {
-        boardContent(pokemon: pokemon, game: game)
+        boardContent(pokemon: pokemon, game: game, screenWidth: proxy.size.width)
           .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .center)
       }
       .scrollBounceBehavior(.basedOnSize)
     }
   }
 
-  private func boardContent(pokemon: Pokemon, game: NameBuilderGame) -> some View {
+  private func boardContent(
+    pokemon: Pokemon,
+    game: NameBuilderGame,
+    screenWidth: CGFloat
+  ) -> some View {
     VStack(spacing: 12) {
       HStack(spacing: 12) {
         PokedexBackButton { dismiss() }
@@ -149,11 +178,15 @@ private struct NameBuilderContentView: View {
         .foregroundStyle(DesignColor.ink)
 
       NameBuilderCard {
-        WrappingRows(spacing: 7) {
+        WrappingRows(spacing: NameBuilderLayout.slotSpacing) {
           ForEach(0..<game.answer.count, id: \.self) { index in
             NameBuilderSlot(
               character: index < game.placed.count ? game.placed[index] : nil,
-              isLit: index < litSlotCount
+              isLit: index < litSlotCount,
+              width: NameBuilderLayout.slotWidth(
+                screenWidth: screenWidth,
+                slotCount: game.answer.count
+              )
             )
             .onTapGesture {
               model.removePlaced(index: index)
@@ -165,7 +198,7 @@ private struct NameBuilderContentView: View {
       }
 
       NameBuilderCard {
-        WrappingRows(spacing: 8) {
+        WrappingRows(spacing: NameBuilderLayout.tileSpacing) {
           ForEach(game.tileStates) { tile in
             NameBuilderTileView(tile: tile)
               .onTapGesture {
@@ -197,7 +230,7 @@ private struct NameBuilderContentView: View {
         }
       }
     }
-    .padding(16)
+    .padding(NameBuilderLayout.boardPadding)
     .frame(maxWidth: .infinity)
   }
 
@@ -286,7 +319,7 @@ private struct NameBuilderCard<Content: View>: View {
     content
       .frame(maxWidth: .infinity)
       .padding(.vertical, 12)
-      .padding(.horizontal, 10)
+      .padding(.horizontal, NameBuilderLayout.cardPadding)
       .background(DesignColor.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -299,17 +332,23 @@ private struct NameBuilderCard<Content: View>: View {
 private struct NameBuilderSlot: View {
   let character: Character?
   let isLit: Bool
+  /// マスの幅。狭い端末でも名前が 1 行に収まるよう、画面の幅から決めた値を受け取る。
+  let width: CGFloat
 
   var body: some View {
     VStack(spacing: 2) {
       Text(character.map { String($0) } ?? " ")
         .font(.system(size: 29, weight: .heavy, design: .rounded))
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
         .foregroundStyle(isLit ? .white : DesignColor.ink)
       Text(character.map { KatakanaConverter.hiragana(from: String($0)) } ?? " ")
         .font(.system(size: 13, weight: .heavy, design: .rounded))
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
         .foregroundStyle(isLit ? .white : NameBuilderColor.hiragana)
     }
-    .frame(width: 56, height: 62)
+    .frame(width: width, height: 62)
     .background(background, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 15, style: .continuous)
@@ -367,14 +406,14 @@ private struct NameBuilderActionButton: View {
     Button(action: action) {
       HStack(spacing: 8) {
         Image(systemName: systemImage)
-          .font(.system(size: 26, weight: .bold))
+          .font(.system(size: 24, weight: .bold))
         Text(title)
           .font(.system(size: 23, weight: .heavy, design: .rounded))
-          .minimumScaleFactor(0.6)
+          .minimumScaleFactor(0.45)
           .lineLimit(1)
       }
       .foregroundStyle(foreground)
-      .padding(.horizontal, 14)
+      .padding(.horizontal, 10)
       .frame(maxWidth: .infinity, minHeight: 84)
     }
     .buttonStyle(
