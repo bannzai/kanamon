@@ -8,12 +8,19 @@ struct NameBuilderGame: Equatable {
   let answer: [Character]
   /// 下に並べる文字タイル。正解の文字とダミーの文字をシャッフルした並びで持つ。
   let tiles: [Character]
+  /// いま並べたタイルを、タップした順に `tiles` の添字で持つ。
+  ///
+  /// 同じ文字のタイルが複数あるため、文字ではなくタップされたタイルそのものを覚える。
+  private(set) var placedTileIDs: [Int] = []
+
   /// いま並べた文字。先頭のマスから順に埋まる。
-  private(set) var placed: [Character] = []
+  var placed: [Character] {
+    placedTileIDs.map { tiles[$0] }
+  }
 
   /// 全マスが埋まっているか。
   var isFilled: Bool {
-    placed.count == answer.count
+    placedTileIDs.count == answer.count
   }
 
   /// タイル 1 つぶんの表示状態。同じ文字が複数並ぶため、文字ではなく並びの位置で区別する。
@@ -26,21 +33,14 @@ struct NameBuilderGame: Equatable {
     let isSpent: Bool
   }
 
-  /// 表示用のタイル一覧。同じ文字が名前に 2 回出る場合に備え、使用済みフラグではなく使用回数で判定する。
+  /// 表示用のタイル一覧。
+  ///
+  /// 同じ文字が名前に 2 回出る場合に備え、文字ごとの使用済みフラグではなく、
+  /// タップされたタイルそのものを薄くする。同じ文字の別のタイルは残る。
   var tileStates: [Tile] {
-    var placedCounts: [Character: Int] = [:]
-    for character in placed {
-      placedCounts[character, default: 0] += 1
-    }
-
-    var seenCounts: [Character: Int] = [:]
+    let placedTileIDs = Set(placedTileIDs)
     return tiles.enumerated().map { index, character in
-      seenCounts[character, default: 0] += 1
-      return Tile(
-        id: index,
-        character: character,
-        isSpent: placedCounts[character, default: 0] >= seenCounts[character, default: 0]
-      )
+      Tile(id: index, character: character, isSpent: placedTileIDs.contains(index))
     }
   }
 
@@ -74,37 +74,37 @@ struct NameBuilderGame: Equatable {
   ///
   /// 呼ぶたびに 1 文字増えるため冪等ではない。使い切ったタイルと、全マスが埋まっている時は何もしない。
   mutating func place(tile: Tile) {
-    guard !tile.isSpent, !isFilled else {
+    guard !tile.isSpent, !isFilled, tiles.indices.contains(tile.id) else {
       return
     }
-    placed.append(tile.character)
+    placedTileIDs.append(tile.id)
   }
 
   /// 「1つ もどす」で直前の 1 文字を取り消す。
   ///
   /// 呼ぶたびに 1 文字減るため冪等ではない。まだ並べていない時は何もしない。
   mutating func undo() {
-    guard !placed.isEmpty else {
+    guard !placedTileIDs.isEmpty else {
       return
     }
-    placed.removeLast()
+    placedTileIDs.removeLast()
   }
 
   /// 埋めたマスをタップして、その位置から後ろをまとめて取り消す。
   ///
   /// 同じ位置を指定すれば結果は同じになる (冪等)。
   mutating func removePlaced(index: Int) {
-    guard placed.indices.contains(index) else {
+    guard placedTileIDs.indices.contains(index) else {
       return
     }
-    placed.removeSubrange(index...)
+    placedTileIDs.removeSubrange(index...)
   }
 
   /// 先頭から `keepCount` 文字だけ残して戻す。`judgement()` の `.rollback` に対応する。
   ///
   /// 同じ `keepCount` で何度呼んでも結果は同じになる (冪等)。
   mutating func rollback(keepCount: Int) {
-    placed = Array(placed.prefix(max(0, keepCount)))
+    placedTileIDs = Array(placedTileIDs.prefix(max(0, keepCount)))
   }
 }
 

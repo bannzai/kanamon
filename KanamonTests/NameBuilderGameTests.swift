@@ -1,3 +1,4 @@
+import SwiftData
 import XCTest
 
 @testable import Kanamon
@@ -64,6 +65,18 @@ final class NameBuilderGameTests: XCTestCase {
 
     XCTAssertEqual(game.judgement(), .rollback(keepCount: 1))
     game.rollback(keepCount: 1)
+    XCTAssertEqual(game.placed, ["モ"])
+  }
+
+  /// 同じ文字のタイルが 2 枚ある時、タップした側だけが薄くなる。
+  func testRepeatedCharacterMarksTappedTileAsSpent() {
+    var game = NameBuilderGame(answer: Array("モモンガ"), tiles: Array("モンモガ"))
+    guard let secondMo = game.tileStates.last(where: { $0.character == "モ" }) else {
+      return XCTFail("モ のタイルが見つからない")
+    }
+
+    game.place(tile: secondMo)
+    XCTAssertEqual(game.tileStates.filter(\.isSpent).map(\.id), [secondMo.id])
     XCTAssertEqual(game.placed, ["モ"])
   }
 
@@ -174,6 +187,68 @@ final class NameBuilderGameTests: XCTestCase {
     }
   }
 
+  /// 誤った並びを戻すまでの間は、盤面のタップを受け付けない。
+  ///
+  /// 受け付けると、古い判定の戻し先が新しい並びへ適用されてしまう。
+  @MainActor
+  func testModelIgnoresInputWhileRollingBack() async throws {
+    let context = ModelContext(try makeContainer())
+    let model = makeModel(context: context)
+    await model.load()
+
+    let answer = try XCTUnwrap(model.game?.answer)
+    for character in answer.reversed() {
+      _ = model.place(tile: try tile(character: character, in: model))
+    }
+
+    XCTAssertFalse(model.acceptsInput)
+    let placedWhileRollingBack = try XCTUnwrap(model.game?.placed)
+    model.undo()
+    model.removePlaced(index: 0)
+    // 正解の文字はすべて置いた後なので、まだ使っていないダミーのタイルで試す。
+    _ = model.place(tile: try XCTUnwrap(model.game?.tileStates.first { !$0.isSpent }))
+    XCTAssertEqual(model.game?.placed, placedWhileRollingBack)
+
+    model.rollback(keepCount: 0)
+    XCTAssertTrue(model.acceptsInput)
+    XCTAssertEqual(model.game?.placed, [])
+  }
+
+  /// 正解した後もゲット演出の間はタップを受け付けない。
+  @MainActor
+  func testModelIgnoresInputAfterCorrectAnswer() async throws {
+    let context = ModelContext(try makeContainer())
+    let model = makeModel(context: context)
+    await model.load()
+
+    let answer = try XCTUnwrap(model.game?.answer)
+    for character in answer {
+      _ = model.place(tile: try tile(character: character, in: model))
+    }
+
+    XCTAssertEqual(model.result?.isNewCatch, true)
+    XCTAssertFalse(model.acceptsInput)
+    model.undo()
+    XCTAssertEqual(model.game?.placed, answer)
+  }
+
+  /// 正解すると、名前に含まれる文字が読めた文字として記録される。
+  @MainActor
+  func testModelRecordsReadCharactersOnCorrectAnswer() async throws {
+    let context = ModelContext(try makeContainer())
+    let store = LearningProgressStore(modelContext: context)
+    let model = makeModel(context: context, store: store)
+    await model.load()
+
+    let answer = try XCTUnwrap(model.game?.answer)
+    for character in answer {
+      _ = model.place(tile: try tile(character: character, in: model))
+    }
+
+    XCTAssertEqual(try store.caughtPokemonIDs(), [1])
+    XCTAssertEqual(try store.readCharacters(), Gojuon.readableCharacters(in: String(answer)))
+  }
+
   /// 子どもが読めるように、画面に出す文言はかな・数字・約物だけにする。
   func testNameBuilderTextUsesOnlyReadableCharacters() {
     for text in NameBuilderText.all {
@@ -187,6 +262,55 @@ final class NameBuilderGameTests: XCTestCase {
       return XCTFail("\(character) の使えるタイルが見つからない")
     }
     game.place(tile: tile)
+  }
+
+  @MainActor
+  private func tile(character: Character, in model: NameBuilderModel) throws -> NameBuilderGame.Tile {
+    try XCTUnwrap(
+      model.game?.tileStates.first { $0.character == character && !$0.isSpent },
+      "\(character) の使えるタイルが見つからない"
+    )
+  }
+
+  @MainActor
+  private func makeContainer() throws -> ModelContainer {
+    try ModelContainer(
+      for: PokemonCacheEntry.self, CaughtPokemonEntry.self, CharacterProgressEntry.self,
+      configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+  }
+
+  @MainActor
+  private func makeModel(context: ModelContext, store: LearningProgressStore? = nil) -> NameBuilderModel {
+    let pokemon = Pokemon(
+      id: 1,
+      japaneseName: "テストモン",
+      spriteURL: URL(string: "https://example.invalid/1.png")!
+    )
+    return NameBuilderModel(
+      repository: PokemonRepository(
+        modelContext: context,
+        dataSource: NameBuilderPokemonDataSourceStub(pokemonByID: [pokemon.id: pokemon]),
+        pokemonIDs: [pokemon.id]
+      ),
+      learningProgressStore: store ?? LearningProgressStore(modelContext: context),
+      imageCache: nil
+    )
+  }
+}
+
+/// PokeAPI の代わりに架空のメタデータを返すテスト用データソース。
+///
+/// 他のテストファイルの同種のスタブは `private` で使えないため、ここで用意する。
+private actor NameBuilderPokemonDataSourceStub: PokemonDataSource {
+  private let pokemonByID: [Int: Pokemon]
+
+  init(pokemonByID: [Int: Pokemon]) {
+    self.pokemonByID = pokemonByID
+  }
+
+  func fetchPokemon(id: Int) async throws -> Pokemon {
+    try XCTUnwrap(pokemonByID[id])
   }
 }
 

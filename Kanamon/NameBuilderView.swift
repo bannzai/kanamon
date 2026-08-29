@@ -72,6 +72,8 @@ private struct NameBuilderContentView: View {
   /// 間違えた時にマスを揺らすための回数。増やすたびに 1 往復ぶん揺れる。
   @State private var shakeCount = 0
   @State private var overlay = false
+  /// 正解演出・誤答の戻しを進めているタスク。画面を離れた時に取り消す。
+  @State private var judgementTask: Task<Void, Never>?
 
   var body: some View {
     ZStack {
@@ -102,9 +104,25 @@ private struct NameBuilderContentView: View {
     }
     // ゲット演出の間は戻るボタンを押せないように、ナビゲーションバーごと隠す。
     .toolbar(overlay ? .hidden : .visible, for: .navigationBar)
+    .onDisappear {
+      judgementTask?.cancel()
+      judgementTask = nil
+    }
   }
 
   private func board(pokemon: Pokemon, game: NameBuilderGame) -> some View {
+    // 小さい端末 (iPhone SE 等) では 3 行のタイルまで入り切らないため、盤面ごとスクロールさせる。
+    // 収まる端末では上寄せにならないよう、画面の高さぶんの枠に入れて中央へ置く。
+    GeometryReader { proxy in
+      ScrollView {
+        boardContent(pokemon: pokemon, game: game)
+          .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .center)
+      }
+      .scrollBounceBehavior(.basedOnSize)
+    }
+  }
+
+  private func boardContent(pokemon: Pokemon, game: NameBuilderGame) -> some View {
     VStack(spacing: 12) {
       QuizSpriteImage(pokemon: pokemon, imageCache: model.imageCache, size: 178)
         .frame(maxWidth: .infinity, minHeight: 196)
@@ -128,6 +146,7 @@ private struct NameBuilderContentView: View {
             .onTapGesture {
               model.removePlaced(index: index)
             }
+            .allowsHitTesting(model.acceptsInput)
           }
         }
         .modifier(ShakeEffect(shakeCount: CGFloat(shakeCount)))
@@ -140,6 +159,7 @@ private struct NameBuilderContentView: View {
               .onTapGesture {
                 tap(tile: tile)
               }
+              .allowsHitTesting(model.acceptsInput)
           }
         }
       }
@@ -153,6 +173,7 @@ private struct NameBuilderContentView: View {
         ) {
           model.undo()
         }
+        .disabled(!model.acceptsInput)
 
         NameBuilderActionButton(
           title: NameBuilderText.speak,
@@ -166,15 +187,22 @@ private struct NameBuilderContentView: View {
     }
     .padding(16)
     .frame(maxWidth: 520)
+    .frame(maxWidth: .infinity)
   }
 
   private func tap(tile: NameBuilderGame.Tile) {
+    guard model.acceptsInput else {
+      return
+    }
+
     SpeechSynthesizer.shared.speak(String(tile.character))
     switch model.place(tile: tile) {
     case .correct:
-      Task { await lightSlots() }
+      judgementTask?.cancel()
+      judgementTask = Task { await lightSlots() }
     case .rollback(let keepCount):
-      Task { await promptRetry(keepCount: keepCount) }
+      judgementTask?.cancel()
+      judgementTask = Task { await promptRetry(keepCount: keepCount) }
     case nil:
       break
     }

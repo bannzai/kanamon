@@ -18,6 +18,10 @@ final class NameBuilderModel {
   private(set) var game: NameBuilderGame?
   /// 正解した時に見せるゲット演出の内容。クイズと同じ内容を見せるため型を共有する。
   private(set) var result: QuizResult?
+  /// 誤った並びを戻すまでの間か。この間は盤面の操作を受け付けない。
+  ///
+  /// 戻す前に並べ直せると、古い判定結果が新しい並びへ適用されてしまうため。
+  private(set) var rollingBack = false
 
   let imageCache: PokemonImageCache?
 
@@ -49,6 +53,8 @@ final class NameBuilderModel {
 
   func load() async {
     state = .loading
+    result = nil
+    rollingBack = false
     do {
       caughtPokemonIDs = try learningProgressStore.caughtPokemonIDs()
       pokemons = try await repository.loadFirstGeneration()
@@ -72,28 +78,30 @@ final class NameBuilderModel {
   ///
   /// 正解ならこの時点でゲット状況と読めた文字を保存し、`result` を更新する。
   func place(tile: NameBuilderGame.Tile) -> NameBuilderGame.Judgement? {
-    guard var game, result == nil else {
+    guard var game, acceptsInput else {
       return nil
     }
 
-    let placedCount = game.placed.count
     game.place(tile: tile)
     self.game = game
 
-    // 間違えた並びを戻すまでの間はマスが埋まったままなので、置けなかったタップで
-    // 判定し直さない (揺れと「もう いちど」が重なって鳴るため)。
-    guard game.placed.count != placedCount, let judgement = game.judgement() else {
+    guard let judgement = game.judgement() else {
       return nil
     }
-    if judgement == .correct, let pokemon {
-      accept(pokemon: pokemon)
+    switch judgement {
+    case .correct:
+      if let pokemon {
+        accept(pokemon: pokemon)
+      }
+    case .rollback:
+      rollingBack = true
     }
     return judgement
   }
 
   /// 埋めたマスをタップして、その位置から後ろをまとめて取り消す。
   func removePlaced(index: Int) {
-    guard result == nil else {
+    guard acceptsInput else {
       return
     }
     game?.removePlaced(index: index)
@@ -101,20 +109,27 @@ final class NameBuilderModel {
 
   /// 「1つ もどす」で直前の 1 文字を取り消す。
   func undo() {
-    guard result == nil else {
+    guard acceptsInput else {
       return
     }
     game?.undo()
   }
 
-  /// 間違えた並びを、先頭から合っている位置まで戻す。
+  /// 間違えた並びを、先頭から合っている位置まで戻して操作を再開する。
   func rollback(keepCount: Int) {
     game?.rollback(keepCount: keepCount)
+    rollingBack = false
+  }
+
+  /// 盤面のタップを受け付ける状態か。ゲット演出中と、誤った並びを戻すまでの間は受け付けない。
+  var acceptsInput: Bool {
+    result == nil && !rollingBack
   }
 
   /// 次のポケモンの出題へ進む。最後まで行ったら先頭へ戻る。
   func advance() {
     result = nil
+    rollingBack = false
     if let latest = try? learningProgressStore.caughtPokemonIDs() {
       caughtPokemonIDs = latest
     }
@@ -153,6 +168,9 @@ final class NameBuilderModel {
       saved = true
       caughtPokemonIDs.insert(pokemon.id)
     } catch {
+      // 保存できなかったゲット情報を未保存のまま残すと、後続の markRead の保存に
+      // 巻き込まれて永続化され、画面の表示 (とうろく していない) と食い違うため捨てる。
+      learningProgressStore.discardUnsavedChanges()
       saved = false
     }
     for character in Gojuon.readableCharacters(in: pokemon.japaneseName) {
