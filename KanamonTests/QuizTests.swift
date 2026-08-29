@@ -92,6 +92,24 @@ final class QuizTests: XCTestCase {
     }
   }
 
+  func testFillInBlankMixesSimilarCharacterIntoChoices() throws {
+    let pokemons = (1...4).map { id in
+      Pokemon(id: id, japaneseName: "シ", spriteURL: URL(string: "https://example.com/\(id).png")!)
+    }
+    var questionGenerator = QuizQuestionGenerator(
+      pokemons: pokemons,
+      caughtPokemonIDs: [],
+      generator: SeededGenerator(seed: 11)
+    )
+
+    for _ in 0..<20 {
+      let question = try XCTUnwrap(questionGenerator.makeQuestion(mode: .fillInBlank))
+      XCTAssertTrue(question.kanaChoices.contains("ツ"), "シ の問題には ツ を混ぜる必要があります")
+      XCTAssertEqual(Set(question.kanaChoices).count, 4)
+    }
+    XCTAssertEqual(Gojuon.similarCharacters(to: "ア"), [])
+  }
+
   func testFillInBlankReturnsNilWhenNoPokemonHasKana() {
     let pokemons = (1...4).map { id in
       Pokemon(id: id, japaneseName: "♀♂ー", spriteURL: URL(string: "https://example.com/\(id).png")!)

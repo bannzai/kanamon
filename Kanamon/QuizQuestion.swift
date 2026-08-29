@@ -26,6 +26,19 @@ enum Gojuon {
     "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
   )
 
+  /// 子どもが見分けにくい形の似た文字の組 (documents/design/README.md「にている もじ の注意」)。
+  static let similarPairs: [Set<Character>] = [
+    ["シ", "ツ"], ["ソ", "ン"], ["ク", "ケ"], ["ス", "ヌ"],
+    ["マ", "ム"], ["ナ", "メ"], ["ハ", "ヘ"], ["チ", "テ"],
+  ]
+
+  /// 指定した文字と形が似ている文字を返す。似た文字が無ければ空。
+  static func similarCharacters(to character: Character) -> [Character] {
+    similarPairs
+      .filter { $0.contains(character) }
+      .flatMap { $0.subtracting([character]) }
+  }
+
   /// 名前のうち、五十音表の 46 文字として読める文字を正規化して返す。「ー」のように五十音表にない文字は含めない。
   static func readableCharacters(in name: String) -> Set<Character> {
     let gojuon = Set(characters)
@@ -151,10 +164,12 @@ struct QuizQuestionGenerator {
       return nil
     }
     let correct = characters[index]
-    let dummies = Gojuon.characters
-      .filter { $0 != correct }
+    // にている文字の弁別が練習になるよう (documents/design/README.md「クイズ」)、正解と形が似た文字を先にダミーへ入れ、残りを五十音から補う。
+    let similar = Gojuon.similarCharacters(to: correct).shuffled(using: &generator)
+    let others = Gojuon.characters
+      .filter { $0 != correct && !similar.contains($0) }
       .shuffled(using: &generator)
-      .prefix(3)
+    let dummies = (similar + others).prefix(3)
     return (index, ([correct] + dummies).shuffled(using: &generator))
   }
 }
