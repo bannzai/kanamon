@@ -76,10 +76,13 @@ final class NameBuilderModel {
       return nil
     }
 
+    let placedCount = game.placed.count
     game.place(tile: tile)
     self.game = game
 
-    guard let judgement = game.judgement() else {
+    // 間違えた並びを戻すまでの間はマスが埋まったままなので、置けなかったタップで
+    // 判定し直さない (揺れと「もう いちど」が重なって鳴るため)。
+    guard game.placed.count != placedCount, let judgement = game.judgement() else {
       return nil
     }
     if judgement == .correct, let pokemon {

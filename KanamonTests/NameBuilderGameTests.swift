@@ -116,6 +116,21 @@ final class NameBuilderGameTests: XCTestCase {
     XCTAssertEqual(game.placed, ["テ"], "範囲外のマスをタップしても変化しない")
   }
 
+  /// 間違えた並びを戻すまでの間にタイルをタップしても、並びは変わらない。
+  func testPlaceIsIgnoredWhileWrongOrderRemainsFilled() {
+    var game = NameBuilderGame(answer: Array("テスト"), tiles: Array("テストヌ"))
+    for character in "テトス" {
+      place(character: character, in: &game)
+    }
+    XCTAssertEqual(game.judgement(), .rollback(keepCount: 1))
+
+    guard let tile = game.tileStates.first(where: { $0.character == "ヌ" }) else {
+      return XCTFail("ヌ のタイルが見つからない")
+    }
+    game.place(tile: tile)
+    XCTAssertEqual(game.placed, Array("テトス"))
+  }
+
   func testPlaceIsIgnoredWhenAllSlotsAreFilled() {
     var game = NameBuilderGame(answer: Array("テス"), tiles: Array("テスト"))
     place(character: "テ", in: &game)
