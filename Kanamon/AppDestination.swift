@@ -11,6 +11,8 @@ enum AppDestination: String, CaseIterable, Hashable, Identifiable {
   case yomiRenshu
   /// 絵に対して名前を 4 択で答える画面。
   case quiz
+  /// 文字タイルを並べて名前を組み立てる画面。
+  case nameBuilder
 
   var id: String { rawValue }
 }

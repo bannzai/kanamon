@@ -28,13 +28,17 @@ struct HomeMenuItem: Identifiable {
       title = "クイズ"
       systemImage = "star.fill"
       tint = Color(red: 0.33, green: 0.38, blue: 0.86)
+    case .nameBuilder:
+      title = "なまえづくり"
+      systemImage = "textformat"
+      tint = Color(red: 0.42, green: 0.30, blue: 0.71)
     }
   }
 
   static let all: [HomeMenuItem] = AppDestination.allCases.map(HomeMenuItem.init(destination:))
 }
 
-/// ホーム画面。ずかん・よみれんしゅう・クイズへの導線を大きなボタンで並べる。
+/// ホーム画面。ずかん・よみれんしゅう・クイズ・なまえづくりへの導線を大きなボタンで並べる。
 ///
 /// 子どもが 1 人で迷わないよう、階層はホームと各画面の 2 段だけにする。
 struct HomeView: View {
@@ -53,7 +57,12 @@ struct HomeView: View {
       .background(Color(.systemGroupedBackground))
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
-        PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        switch destination {
+        case .nameBuilder:
+          NameBuilderView()
+        case .zukan, .yomiRenshu, .quiz:
+          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        }
       }
     }
   }
