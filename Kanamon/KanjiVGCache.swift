@@ -49,6 +49,21 @@ actor KanjiVGCache {
     return try await downloadTask.value
   }
 
+  /// 保存済みの書き順データを捨てる。
+  ///
+  /// 取得は成功したのに中身を解析できなかった時、壊れたファイルを以後もキャッシュから返し続けて
+  /// その文字を練習できなくしないために、呼び出し側から捨てられるようにする。
+  /// ファイルが無い場合は何もしない (何度呼んでも同じ結果になる)。
+  func removeStrokeData(for character: Character) throws {
+    let fileName = try Self.fileName(for: character)
+    let fileURL = cacheDirectory.appendingPathComponent(fileName)
+    guard fileManager.fileExists(atPath: fileURL.path) else {
+      return
+    }
+
+    try fileManager.removeItem(at: fileURL)
+  }
+
   private func downloadAndStore(fileName: String, at fileURL: URL) async throws -> Data {
     let sourceURL = baseURL.appendingPathComponent(fileName)
     let (data, response) = try await dataLoader.data(from: sourceURL)
