@@ -1,38 +1,22 @@
 import Foundation
 import SwiftData
+import UIKit
 import XCTest
 
 @testable import Kanamon
 
 final class PokedexTests: XCTestCase {
-  @MainActor
-  func testStoreSavesCaughtPokemonAndReturnsThemAsIDs() throws {
-    let container = try makeContainer()
-    let store = CaughtPokemonStore(modelContext: container.mainContext)
-
-    try store.markCaught(pokemonID: 1)
-    try store.markCaught(pokemonID: 3)
-
-    XCTAssertEqual(try store.caughtPokemonIDs(), [1, 3])
-  }
-
-  @MainActor
-  func testStoreKeepsSingleEntryWhenSamePokemonIsMarkedTwice() throws {
-    let container = try makeContainer()
-    let store = CaughtPokemonStore(modelContext: container.mainContext)
-
-    try store.markCaught(pokemonID: 1)
-    try store.markCaught(pokemonID: 1)
-
-    XCTAssertEqual(try store.caughtPokemonIDs(), [1])
-    XCTAssertEqual(try container.mainContext.fetch(FetchDescriptor<CaughtPokemon>()).count, 1)
+  func testNumberTextUsesThreeDigits() {
+    XCTAssertEqual(pokedexNumberText(id: 1), "No.001")
+    XCTAssertEqual(pokedexNumberText(id: 25), "No.025")
+    XCTAssertEqual(pokedexNumberText(id: 151), "No.151")
   }
 
   @MainActor
   func testModelLoadsPokemonListWithCaughtStatus() async throws {
     let container = try makeContainer()
-    let store = CaughtPokemonStore(modelContext: container.mainContext)
-    try store.markCaught(pokemonID: 2)
+    let store = LearningProgressStore(modelContext: container.mainContext)
+    try store.markPokemonCaught(id: 2)
     let model = makeModel(container: container, store: store, pokemonIDs: [1, 2, 3])
 
     await model.load()
@@ -44,23 +28,40 @@ final class PokedexTests: XCTestCase {
   }
 
   @MainActor
-  func testModelProgressTextCountsOnlyPokemonShownInTheList() async throws {
+  func testModelProgressCountsOnlyPokemonShownInTheList() async throws {
     let container = try makeContainer()
-    let store = CaughtPokemonStore(modelContext: container.mainContext)
-    try store.markCaught(pokemonID: 1)
-    try store.markCaught(pokemonID: 99)
-    let model = makeModel(container: container, store: store, pokemonIDs: [1, 2, 3])
+    let store = LearningProgressStore(modelContext: container.mainContext)
+    try store.markPokemonCaught(id: 1)
+    try store.markPokemonCaught(id: 99)
+    let model = makeModel(container: container, store: store, pokemonIDs: [1, 2, 3, 4])
 
     await model.load()
 
     XCTAssertEqual(model.caughtCount, 1)
-    XCTAssertEqual(model.progressText, "1 / 3")
+    XCTAssertEqual(model.progressText, "1 / 4")
+    XCTAssertEqual(model.progressFraction, 0.25)
+  }
+
+  @MainActor
+  func testModelNumberRangeTextShowsFirstAndLastNumber() async throws {
+    let container = try makeContainer()
+    let model = makeModel(
+      container: container,
+      store: LearningProgressStore(modelContext: container.mainContext),
+      pokemonIDs: [1, 2, 3]
+    )
+    XCTAssertEqual(model.numberRangeText, "No.--- - ---")
+    XCTAssertEqual(model.progressFraction, 0)
+
+    await model.load()
+
+    XCTAssertEqual(model.numberRangeText, "No.001 - 003")
   }
 
   @MainActor
   func testModelReloadsCaughtStatusWithoutFetchingPokemonAgain() async throws {
     let container = try makeContainer()
-    let store = CaughtPokemonStore(modelContext: container.mainContext)
+    let store = LearningProgressStore(modelContext: container.mainContext)
     let dataSource = PokemonDataSourceStub(failingIDs: [])
     let model = makeModel(
       container: container,
@@ -71,7 +72,7 @@ final class PokedexTests: XCTestCase {
     await model.load()
     let requestCountAfterLoad = await dataSource.requestCount()
 
-    try store.markCaught(pokemonID: 3)
+    try store.markPokemonCaught(id: 3)
     model.reloadCaughtPokemonIDs()
     let requestCountAfterReload = await dataSource.requestCount()
 
@@ -84,7 +85,7 @@ final class PokedexTests: XCTestCase {
     let container = try makeContainer()
     let model = makeModel(
       container: container,
-      store: CaughtPokemonStore(modelContext: container.mainContext),
+      store: LearningProgressStore(modelContext: container.mainContext),
       pokemonIDs: [1, 2],
       dataSource: PokemonDataSourceStub(failingIDs: [2])
     )
@@ -97,10 +98,14 @@ final class PokedexTests: XCTestCase {
   func testDisplayedTextsUseKanaOnly() {
     let texts = [
       PokedexText.title,
+      PokedexText.deviceTitle,
+      PokedexText.caughtCountLabel,
       PokedexText.loading,
       PokedexText.failed,
       PokedexText.retry,
+      PokedexText.back,
       PokedexText.unknownName,
+      PokedexText.lockedToast,
     ]
 
     for text in texts {
@@ -112,11 +117,24 @@ final class PokedexTests: XCTestCase {
     }
   }
 
+  func testDesignColorsMatchSpecificationHex() {
+    // README「6. スタイルトークン」の 16 進値が Color(hex:) で正しく分解されることを、インクの色で確認する
+    let ink = UIColor(DesignColor.ink)
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    ink.getRed(&red, green: &green, blue: &blue, alpha: nil)
+
+    XCTAssertEqual(red, 0x33 / 255.0, accuracy: 0.001)
+    XCTAssertEqual(green, 0x24 / 255.0, accuracy: 0.001)
+    XCTAssertEqual(blue, 0x1A / 255.0, accuracy: 0.001)
+  }
+
   @MainActor
   private func makeContainer() throws -> ModelContainer {
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
     return try ModelContainer(
-      for: PokemonCacheEntry.self, CaughtPokemon.self,
+      for: PokemonCacheEntry.self, CaughtPokemonEntry.self, CharacterProgressEntry.self,
       configurations: configuration
     )
   }
@@ -124,7 +142,7 @@ final class PokedexTests: XCTestCase {
   @MainActor
   private func makeModel(
     container: ModelContainer,
-    store: CaughtPokemonStore,
+    store: LearningProgressStore,
     pokemonIDs: [Int],
     dataSource: PokemonDataSourceStub = PokemonDataSourceStub(failingIDs: [])
   ) -> PokedexModel {
@@ -134,7 +152,7 @@ final class PokedexTests: XCTestCase {
         dataSource: dataSource,
         pokemonIDs: pokemonIDs
       ),
-      caughtPokemonStore: store,
+      learningProgressStore: store,
       imageCache: nil
     )
   }

@@ -9,6 +9,11 @@ enum PokedexLoadingState: Equatable {
   case failed
 }
 
+/// 図鑑番号を `No.001` 形式の 3 桁で表記する。ずかんのセルと各画面のヘッダーで使う。
+func pokedexNumberText(id: Int) -> String {
+  String(format: "No.%03d", id)
+}
+
 /// ずかん画面が表示するポケモン一覧とゲット状況を組み立てる。
 @MainActor
 @Observable
@@ -20,23 +25,23 @@ final class PokedexModel {
   let imageCache: PokemonImageCache?
 
   private let repository: PokemonRepository
-  private let caughtPokemonStore: CaughtPokemonStore
+  private let learningProgressStore: LearningProgressStore
 
   convenience init(modelContext: ModelContext) {
     self.init(
       repository: PokemonRepository(modelContext: modelContext),
-      caughtPokemonStore: CaughtPokemonStore(modelContext: modelContext),
+      learningProgressStore: LearningProgressStore(modelContext: modelContext),
       imageCache: try? PokemonImageCache()
     )
   }
 
   init(
     repository: PokemonRepository,
-    caughtPokemonStore: CaughtPokemonStore,
+    learningProgressStore: LearningProgressStore,
     imageCache: PokemonImageCache?
   ) {
     self.repository = repository
-    self.caughtPokemonStore = caughtPokemonStore
+    self.learningProgressStore = learningProgressStore
     self.imageCache = imageCache
   }
 
@@ -54,6 +59,20 @@ final class PokedexModel {
     "\(caughtCount) / \(pokemons.count)"
   }
 
+  /// 進捗バーの塗り幅に使う 0〜1 の割合。一覧が空なら 0。
+  var progressFraction: Double {
+    pokemons.isEmpty ? 0 : Double(caughtCount) / Double(pokemons.count)
+  }
+
+  /// ヘッダーに出す図鑑番号の範囲。一覧が空の間は末尾を `---` にする。
+  var numberRangeText: String {
+    guard let first = pokemons.first, let last = pokemons.last else {
+      return "No.--- - ---"
+    }
+
+    return "\(pokedexNumberText(id: first.id)) - \(String(format: "%03d", last.id))"
+  }
+
   func isCaught(_ pokemon: Pokemon) -> Bool {
     caughtPokemonIDs.contains(pokemon.id)
   }
@@ -63,7 +82,7 @@ final class PokedexModel {
     state = .loading
 
     do {
-      caughtPokemonIDs = try caughtPokemonStore.caughtPokemonIDs()
+      caughtPokemonIDs = try learningProgressStore.caughtPokemonIDs()
       pokemons = try await repository.loadFirstGeneration()
       state = .loaded
     } catch {
@@ -73,13 +92,6 @@ final class PokedexModel {
 
   /// ゲット状況だけを読み直す。ポケモン一覧の再取得は行わない。
   func reloadCaughtPokemonIDs() {
-    caughtPokemonIDs = (try? caughtPokemonStore.caughtPokemonIDs()) ?? caughtPokemonIDs
+    caughtPokemonIDs = (try? learningProgressStore.caughtPokemonIDs()) ?? caughtPokemonIDs
   }
-
-  #if DEBUG
-    /// 開発者メニューからゲット状況を書き換えるためにストアを渡す。
-    var debugCaughtPokemonStore: CaughtPokemonStore {
-      caughtPokemonStore
-    }
-  #endif
 }

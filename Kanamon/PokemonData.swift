@@ -31,7 +31,9 @@ struct PersistenceController {
 
       let configuration = ModelConfiguration(isStoredInMemoryOnly: isStoredInMemoryOnly)
       container = try ModelContainer(
-        for: PokemonCacheEntry.self, CaughtPokemon.self,
+        for: PokemonCacheEntry.self,
+        CaughtPokemonEntry.self,
+        CharacterProgressEntry.self,
         configurations: configuration
       )
     } catch {
@@ -143,4 +145,16 @@ final class PokemonRepository {
 /// PokeAPI の応答と要求した ID が一致しない場合のエラーを表す。
 enum PokemonRepositoryError: Error, Equatable {
   case unexpectedPokemonID(expected: Int, actual: Int)
+}
+
+/// 正規化した文字を名前に含むポケモンを、入力順を保って抽出する。
+enum PokemonCharacterSearch {
+  static func pokemon(containing character: Character, in pokemon: [Pokemon]) -> [Pokemon] {
+    let normalizedCharacter = KatakanaCharacterNormalizer.baseCharacter(from: character)
+    return pokemon.filter { pokemon in
+      pokemon.japaneseName.contains { character in
+        KatakanaCharacterNormalizer.baseCharacter(from: character) == normalizedCharacter
+      }
+    }
+  }
 }
