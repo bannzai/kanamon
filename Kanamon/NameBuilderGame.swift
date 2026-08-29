@@ -80,7 +80,7 @@ struct NameBuilderGame: Equatable {
     placed.append(tile.character)
   }
 
-  /// 「1 つ もどす」で直前の 1 文字を取り消す。
+  /// 「1つ もどす」で直前の 1 文字を取り消す。
   ///
   /// 呼ぶたびに 1 文字減るため冪等ではない。まだ並べていない時は何もしない。
   mutating func undo() {
@@ -112,7 +112,7 @@ struct NameBuilderGame: Equatable {
 enum NameBuilderTileMaker {
   /// 名前の文字数に対して混ぜるダミー文字の数。
   ///
-  /// タイルの総数が 10 枚に収まる範囲でダミーを混ぜる (デザイン仕様「4-2. なまえ づくり」の 3〜6 文字)。
+  /// タイルの総数が 10 枚に収まる範囲で混ぜる (デザイン仕様「4-2. なまえ づくり」のダミー 3〜6 文字)。
   /// 短い名前ほど当てずっぽうで並んでしまうため、上限の 6 文字まで増やす。
   static func decoyCount(answerLength: Int) -> Int {
     max(3, min(6, 10 - answerLength))
@@ -120,19 +120,24 @@ enum NameBuilderTileMaker {
 
   /// 正解の文字 + ダミー文字をシャッフルしたタイルの並びを作る。
   ///
-  /// - Parameters:
-  ///   - answer: 組み立てる名前を 1 文字ずつに分けたもの。
-  ///   - candidates: ダミーに使う文字の候補。既定は五十音の 46 文字で、まだ習っていない濁点付きの文字を混ぜないため。
-  ///   - shuffle: 並びを混ぜる処理。既定は `shuffled()` で、テストから並びを固定できるように引数にしている。
-  static func tiles(
+  /// ダミーは形の似た文字 (シ/ツ・ソ/ン等) を先に選ぶ。似ている文字の選び分けをそのまま練習にするため。
+  /// 乱数はテストで固定できるように差し替え可能にする。
+  static func tiles<Generator: RandomNumberGenerator>(
     answer: [Character],
-    candidates: [Character] = KatakanaSyllabary.characters,
-    shuffle: ([Character]) -> [Character] = { $0.shuffled() }
+    generator: inout Generator
   ) -> [Character] {
-    shuffle(
-      answer
-        + shuffle(candidates.filter { !answer.contains($0) })
-        .prefix(decoyCount(answerLength: answer.count))
-    )
+    let answerCharacters = Set(answer)
+    var decoys: [Character] = []
+
+    for character in answer.flatMap(Gojuon.similarCharacters(to:)).shuffled(using: &generator)
+    where !answerCharacters.contains(character) && !decoys.contains(character) {
+      decoys.append(character)
+    }
+    decoys += Gojuon.characters
+      .filter { !answerCharacters.contains($0) && !decoys.contains($0) }
+      .shuffled(using: &generator)
+
+    return (answer + decoys.prefix(decoyCount(answerLength: answer.count)))
+      .shuffled(using: &generator)
   }
 }

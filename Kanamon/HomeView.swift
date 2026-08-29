@@ -58,9 +58,13 @@ struct HomeView: View {
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
         switch destination {
+        case .zukan:
+          PokedexView()
+        case .quiz:
+          QuizView()
         case .nameBuilder:
           NameBuilderView()
-        case .zukan, .yomiRenshu, .quiz:
+        case .yomiRenshu:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }

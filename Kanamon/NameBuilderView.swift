@@ -1,61 +1,120 @@
-import SwiftData
 import SwiftUI
 
-/// なまえ づくり画面。絵を見て文字タイルを 1 つずつ選び、名前を組み立てる。
+/// なまえ づくり画面に出す文言。子どもが読めるようにひらがな・カタカナ・数字だけで書く。
+enum NameBuilderText {
+  static let title = "なまえづくり"
+  static let prompt = "もじ を えらんで なまえ に しよう"
+  static let undo = "1つ もどす"
+  static let speak = "よんで もらう"
+  static let next = "つぎ へ"
+  static let tryAgain = "もう いちど"
+  static let getHeadline = "ゲット！"
+  static let correctHeadline = "せいかい！"
+  static let registered = "ずかん に とうろく したよ"
+  static let alreadyRegistered = "なまえ を つくれたね"
+  static let loading = "よみこみちゅう"
+  static let failed = "よみこめなかったよ"
+  static let retry = "もういちど"
+
+  /// 画面に出すすべての文言。かなだけで書けているかをテストで検証するために並べる。
+  static let all: [String] = [
+    title, prompt, undo, speak, next, tryAgain, getHeadline, correctHeadline,
+    registered, alreadyRegistered, loading, failed, retry,
+  ]
+}
+
+/// なまえ づくり画面のデザイントークン。共通の色は `DesignColor` を使い、この画面だけの色をここに置く。
+enum NameBuilderColor {
+  /// 画面の地の色。
+  static let background = Color(hex: 0xF3EEFF)
+  /// 空きマスの地の色と破線の枠。
+  static let slot = Color(hex: 0xF6F1FF)
+  static let slotBorder = Color(hex: 0xB7A6E0)
+  /// カタカナの下に添えるひらがなの色。
+  static let hiragana = Color(hex: 0x1F7FC4)
+}
+
+/// 絵を見て文字タイルを 1 つずつ選び、名前を組み立てる画面。
 ///
 /// デザインは `documents/design/README.md`「4-2. なまえ づくり」に従う。
 struct NameBuilderView: View {
   @Environment(\.modelContext) private var modelContext
-
-  @State private var pokemonList: [Pokemon] = []
-  @State private var pokemonIndex = 0
-  @State private var game: NameBuilderGame?
-  @State private var loadErrorText: String?
-  /// 正解した時に先頭から順に緑へ光らせたマスの数。
-  @State private var litSlotCount = 0
-  /// ゲット演出を出しているか。
-  @State private var isCelebrating = false
-  /// 間違えた時に横へ揺らすための回数。増やすたびに 1 往復ぶん揺れる。
-  @State private var shakeCount = 0
-
-  private var pokemon: Pokemon? {
-    pokemonList.indices.contains(pokemonIndex) ? pokemonList[pokemonIndex] : nil
-  }
+  @State private var model: NameBuilderModel?
 
   var body: some View {
     ZStack {
-      NameBuilderPalette.background.ignoresSafeArea()
-
-      if let loadErrorText {
-        NameBuilderMessage(text: "つうしん が うまく いかなかったよ\n\(loadErrorText)")
-      } else if let pokemon, let game {
-        content(pokemon: pokemon, game: game)
+      NameBuilderColor.background.ignoresSafeArea()
+      if let model {
+        NameBuilderContentView(model: model)
       } else {
-        ProgressView()
-          .controlSize(.large)
+        NameBuilderStatusView(text: NameBuilderText.loading) { ProgressView() }
+      }
+    }
+    .navigationTitle(NameBuilderText.title)
+    .navigationBarTitleDisplayMode(.inline)
+    .task {
+      guard model == nil else {
+        return
+      }
+      let model = NameBuilderModel(modelContext: modelContext)
+      self.model = model
+      await model.load()
+    }
+  }
+}
+
+/// `NameBuilderModel` の状態を実際に描く画面本体。
+private struct NameBuilderContentView: View {
+  let model: NameBuilderModel
+
+  /// 正解した時に先頭から緑へ光らせたマスの数。
+  @State private var litSlotCount = 0
+  /// 間違えた時にマスを揺らすための回数。増やすたびに 1 往復ぶん揺れる。
+  @State private var shakeCount = 0
+  @State private var overlay = false
+
+  var body: some View {
+    ZStack {
+      switch model.state {
+      case .loading:
+        NameBuilderStatusView(text: NameBuilderText.loading) { ProgressView() }
+      case .failed:
+        NameBuilderStatusView(text: NameBuilderText.failed) {
+          Button(NameBuilderText.retry) {
+            Task { await model.retryLoad() }
+          }
+          .font(.system(size: 26, weight: .heavy, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+        }
+      case .loaded:
+        if let pokemon = model.pokemon, let game = model.game {
+          board(pokemon: pokemon, game: game)
+        }
       }
 
-      if isCelebrating {
-        NameBuilderCelebration {
-          isCelebrating = false
-          advanceToNextPokemon()
+      if overlay, let result = model.result {
+        NameBuilderGetOverlay(result: result, imageCache: model.imageCache) {
+          overlay = false
+          litSlotCount = 0
+          model.advance()
         }
       }
     }
-    .navigationTitle("なまえづくり")
-    .navigationBarTitleDisplayMode(.inline)
-    .task {
-      await loadPokemonList()
-    }
   }
 
-  private func content(pokemon: Pokemon, game: NameBuilderGame) -> some View {
+  private func board(pokemon: Pokemon, game: NameBuilderGame) -> some View {
     VStack(spacing: 12) {
-      PokemonSpriteCard(pokemon: pokemon)
+      QuizSpriteImage(pokemon: pokemon, imageCache: model.imageCache, size: 178)
+        .frame(maxWidth: .infinity, minHeight: 196)
+        .background(DesignColor.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+          RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .strokeBorder(DesignColor.ink, lineWidth: 5)
+        }
 
-      Text("もじ を えらんで なまえ に しよう")
+      Text(NameBuilderText.prompt)
         .font(.system(size: 19, weight: .heavy, design: .rounded))
-        .foregroundStyle(NameBuilderPalette.ink)
+        .foregroundStyle(DesignColor.ink)
 
       NameBuilderCard {
         WrappingRows(spacing: 7) {
@@ -65,7 +124,7 @@ struct NameBuilderView: View {
               isLit: index < litSlotCount
             )
             .onTapGesture {
-              tapSlot(index: index)
+              model.removePlaced(index: index)
             }
           }
         }
@@ -75,9 +134,9 @@ struct NameBuilderView: View {
       NameBuilderCard {
         WrappingRows(spacing: 8) {
           ForEach(game.tileStates) { tile in
-            NameBuilderTile(tile: tile)
+            NameBuilderTileView(tile: tile)
               .onTapGesture {
-                tapTile(tile: tile)
+                tap(tile: tile)
               }
           }
         }
@@ -85,21 +144,21 @@ struct NameBuilderView: View {
 
       HStack(spacing: 10) {
         NameBuilderActionButton(
-          title: "1つ もどす",
+          title: NameBuilderText.undo,
           systemImage: "arrow.uturn.backward",
-          tint: NameBuilderPalette.yellow,
-          foreground: NameBuilderPalette.ink
+          tint: DesignColor.yellow,
+          foreground: DesignColor.ink
         ) {
-          undoLastCharacter()
+          model.undo()
         }
 
         NameBuilderActionButton(
-          title: "よんで もらう",
+          title: NameBuilderText.speak,
           systemImage: "speaker.wave.3.fill",
-          tint: NameBuilderPalette.blue,
+          tint: DesignColor.blue,
           foreground: .white
         ) {
-          KanaSpeaker.speak(text: pokemon.japaneseName)
+          SpeechSynthesizer.shared.speak(pokemon.japaneseName)
         }
       }
     }
@@ -107,99 +166,23 @@ struct NameBuilderView: View {
     .frame(maxWidth: 520)
   }
 
-  private func loadPokemonList() async {
-    guard pokemonList.isEmpty else {
-      return
-    }
-
-    do {
-      pokemonList = try await PokemonRepository(modelContext: modelContext).loadFirstGeneration()
-      startGame()
-    } catch {
-      loadErrorText = error.localizedDescription
-    }
-  }
-
-  /// いま選んでいるポケモンの出題を組み立て直す。同じポケモンなら何度呼んでもやり直しになる。
-  private func startGame() {
-    guard let pokemon else {
-      return
-    }
-
-    litSlotCount = 0
-    game = NameBuilderGame(
-      answer: Array(pokemon.japaneseName),
-      tiles: NameBuilderTileMaker.tiles(answer: Array(pokemon.japaneseName))
-    )
-  }
-
-  private func advanceToNextPokemon() {
-    guard !pokemonList.isEmpty else {
-      return
-    }
-
-    pokemonIndex = (pokemonIndex + 1) % pokemonList.count
-    startGame()
-  }
-
-  private func tapTile(tile: NameBuilderGame.Tile) {
-    guard var game, !tile.isSpent, !isCelebrating else {
-      return
-    }
-
-    KanaSpeaker.speak(text: String(tile.character))
-    game.place(tile: tile)
-    self.game = game
-    judge()
-  }
-
-  private func tapSlot(index: Int) {
-    guard var game, !isCelebrating else {
-      return
-    }
-
-    game.removePlaced(index: index)
-    self.game = game
-  }
-
-  private func undoLastCharacter() {
-    guard var game, !isCelebrating else {
-      return
-    }
-
-    game.undo()
-    self.game = game
-  }
-
-  private func judge() {
-    guard let game, let judgement = game.judgement() else {
-      return
-    }
-
-    switch judgement {
+  private func tap(tile: NameBuilderGame.Tile) {
+    SpeechSynthesizer.shared.speak(String(tile.character))
+    switch model.place(tile: tile) {
     case .correct:
-      Task {
-        await celebrateCorrectAnswer()
-      }
+      Task { await lightSlots() }
     case .rollback(let keepCount):
-      KanaSpeaker.speak(text: "もう いちど")
-      withAnimation(.easeInOut(duration: 0.38)) {
-        shakeCount += 1
-      }
-      Task {
-        // 揺れが終わってから戻すと、どこまで合っていたかを子どもが見て分かる。
-        try? await Task.sleep(for: .milliseconds(420))
-        self.game?.rollback(keepCount: keepCount)
-      }
+      Task { await promptRetry(keepCount: keepCount) }
+    case nil:
+      break
     }
   }
 
-  private func celebrateCorrectAnswer() async {
-    guard let pokemon, let game else {
+  /// 正解したマスを先頭から順に緑へ光らせてから、ゲット演出を出す。
+  private func lightSlots() async {
+    guard let game = model.game else {
       return
     }
-
-    saveProgress(pokemon: pokemon, answer: game.answer)
 
     for slotIndex in game.answer.indices {
       withAnimation(.easeOut(duration: 0.2)) {
@@ -207,37 +190,51 @@ struct NameBuilderView: View {
       }
       // 先頭から 1 マスずつ光らせて読む順序を示すため、プロトタイプと同じ 90ms 間隔にする。
       try? await Task.sleep(for: .milliseconds(90))
+      guard !Task.isCancelled else {
+        return
+      }
     }
 
-    KanaSpeaker.speak(text: pokemon.japaneseName)
+    if let pokemon = model.pokemon {
+      SpeechSynthesizer.shared.speak(pokemon.japaneseName)
+    }
     try? await Task.sleep(for: .milliseconds(480))
-    isCelebrating = true
+    guard !Task.isCancelled else {
+      return
+    }
+    overlay = true
   }
 
-  private func saveProgress(pokemon: Pokemon, answer: [Character]) {
-    let store = LearningProgressStore(modelContext: modelContext)
-    do {
-      try store.markPokemonCaught(id: pokemon.id)
-      for character in answer {
-        try store.markRead(character: character)
-      }
-    } catch {
-      // 進捗の保存に失敗しても遊び自体は続けられるため、画面は止めずに記録だけ諦める。
+  /// 間違いを知らせてから、先頭の合っている位置まで戻す。減点や失敗の表示はしない。
+  private func promptRetry(keepCount: Int) async {
+    SpeechSynthesizer.shared.speak(NameBuilderText.tryAgain)
+    withAnimation(.easeInOut(duration: 0.38)) {
+      shakeCount += 1
     }
+
+    // 揺れが終わってから戻すと、どこまで合っていたかを子どもが見て分かる。
+    try? await Task.sleep(for: .milliseconds(420))
+    guard !Task.isCancelled else {
+      return
+    }
+    model.rollback(keepCount: keepCount)
   }
 }
 
-/// なまえ づくり画面で使う色。デザイン仕様「6. スタイルトークン」の値をそのまま持つ。
-enum NameBuilderPalette {
-  static let ink = Color(red: 0.20, green: 0.14, blue: 0.10)
-  static let background = Color(red: 0.95, green: 0.93, blue: 1.00)
-  static let paper = Color.white
-  static let slot = Color(red: 0.96, green: 0.95, blue: 1.00)
-  static let slotBorder = Color(red: 0.72, green: 0.65, blue: 0.88)
-  static let blue = Color(red: 0.17, green: 0.66, blue: 1.00)
-  static let blueDark = Color(red: 0.12, green: 0.50, blue: 0.77)
-  static let yellow = Color(red: 1.00, green: 0.76, blue: 0.18)
-  static let green = Color(red: 0.30, green: 0.78, blue: 0.42)
+/// 読み込み中・読み込み失敗を伝える表示。
+private struct NameBuilderStatusView<Accessory: View>: View {
+  let text: String
+  @ViewBuilder let accessory: Accessory
+
+  var body: some View {
+    VStack(spacing: 20) {
+      accessory
+      Text(text)
+        .font(.system(size: 22, weight: .heavy, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+    }
+    .padding(24)
+  }
 }
 
 /// 画面の中身を白いカードに載せる枠。太い枠とずらした影で図鑑らしい見た目にする。
@@ -249,10 +246,10 @@ private struct NameBuilderCard<Content: View>: View {
       .frame(maxWidth: .infinity)
       .padding(.vertical, 12)
       .padding(.horizontal, 10)
-      .background(NameBuilderPalette.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+      .background(DesignColor.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 26, style: .continuous)
-          .strokeBorder(NameBuilderPalette.ink, lineWidth: 5)
+          .strokeBorder(DesignColor.ink, lineWidth: 5)
       }
   }
 }
@@ -265,64 +262,59 @@ private struct NameBuilderSlot: View {
   var body: some View {
     VStack(spacing: 2) {
       Text(character.map { String($0) } ?? " ")
-        .font(.system(size: 29, weight: .black, design: .rounded))
-        .foregroundStyle(isLit ? .white : NameBuilderPalette.ink)
+        .font(.system(size: 29, weight: .heavy, design: .rounded))
+        .foregroundStyle(isLit ? .white : DesignColor.ink)
       Text(character.map { KatakanaConverter.hiragana(from: String($0)) } ?? " ")
         .font(.system(size: 13, weight: .heavy, design: .rounded))
-        .foregroundStyle(isLit ? .white : NameBuilderPalette.blueDark)
+        .foregroundStyle(isLit ? .white : NameBuilderColor.hiragana)
     }
     .frame(width: 56, height: 62)
-    .background(slotBackground, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+    .background(background, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
     .overlay {
-      if character == nil {
-        RoundedRectangle(cornerRadius: 15, style: .continuous)
-          .strokeBorder(
-            NameBuilderPalette.slotBorder,
-            style: StrokeStyle(lineWidth: 4, dash: [7, 6])
-          )
-      } else {
-        RoundedRectangle(cornerRadius: 15, style: .continuous)
-          .strokeBorder(NameBuilderPalette.ink, lineWidth: 4)
-      }
+      RoundedRectangle(cornerRadius: 15, style: .continuous)
+        .strokeBorder(
+          character == nil ? NameBuilderColor.slotBorder : DesignColor.ink,
+          style: StrokeStyle(lineWidth: 4, dash: character == nil ? [7, 6] : [])
+        )
     }
   }
 
-  private var slotBackground: Color {
+  private var background: Color {
     if isLit {
-      NameBuilderPalette.green
+      DesignColor.green
     } else if character == nil {
-      NameBuilderPalette.slot
+      NameBuilderColor.slot
     } else {
-      NameBuilderPalette.paper
+      DesignColor.paper
     }
   }
 }
 
 /// 下に並べる文字タイル。使い切ったタイルは薄くして押せないことを示す。
-private struct NameBuilderTile: View {
+private struct NameBuilderTileView: View {
   let tile: NameBuilderGame.Tile
 
   var body: some View {
     VStack(spacing: 2) {
       Text(String(tile.character))
-        .font(.system(size: 30, weight: .black, design: .rounded))
-        .foregroundStyle(NameBuilderPalette.ink)
+        .font(.system(size: 30, weight: .heavy, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
       Text(KatakanaConverter.hiragana(from: String(tile.character)))
         .font(.system(size: 13, weight: .heavy, design: .rounded))
-        .foregroundStyle(NameBuilderPalette.blueDark)
+        .foregroundStyle(NameBuilderColor.hiragana)
     }
     .frame(width: 60, height: 64)
-    .background(NameBuilderPalette.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .background(DesignColor.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .strokeBorder(NameBuilderPalette.ink, lineWidth: 4)
+        .strokeBorder(DesignColor.ink, lineWidth: 4)
     }
     .opacity(tile.isSpent ? 0.26 : 1)
     .allowsHitTesting(!tile.isSpent)
   }
 }
 
-/// 画面の下に置く大きなボタン。子どもの指でも押せるように高さを 84pt にする。
+/// 画面の下に置く大きなボタン。子どもの指でも押せるように高さを 84pt にする (デザイン仕様「6. スタイルトークン」)。
 private struct NameBuilderActionButton: View {
   let title: String
   let systemImage: String
@@ -336,7 +328,7 @@ private struct NameBuilderActionButton: View {
         Image(systemName: systemImage)
           .font(.system(size: 26, weight: .bold))
         Text(title)
-          .font(.system(size: 23, weight: .black, design: .rounded))
+          .font(.system(size: 23, weight: .heavy, design: .rounded))
           .minimumScaleFactor(0.6)
           .lineLimit(1)
       }
@@ -345,94 +337,87 @@ private struct NameBuilderActionButton: View {
       .background(tint, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 30, style: .continuous)
-          .strokeBorder(NameBuilderPalette.ink, lineWidth: 5)
+          .strokeBorder(DesignColor.ink, lineWidth: 5)
       }
     }
     .buttonStyle(.plain)
   }
 }
 
-/// ポケモンの画像を載せるカード。画像は `PokemonImageCache` から読み込む。
-private struct PokemonSpriteCard: View {
-  let pokemon: Pokemon
-
-  @State private var spriteData: Data?
-
-  var body: some View {
-    Group {
-      if let spriteData, let image = UIImage(data: spriteData) {
-        Image(uiImage: image)
-          .resizable()
-          .scaledToFit()
-          .frame(width: 178, height: 178)
-      } else {
-        ProgressView()
-      }
-    }
-    .frame(maxWidth: .infinity, minHeight: 196)
-    .background(NameBuilderPalette.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 26, style: .continuous)
-        .strokeBorder(NameBuilderPalette.ink, lineWidth: 5)
-    }
-    .task(id: pokemon.id) {
-      spriteData = nil
-      spriteData = try? await PokemonImageCache().imageData(for: pokemon)
-    }
-  }
-}
-
-/// 正解した時に出すゲット演出。放射状の光の上にバッジを重ねる。
-private struct NameBuilderCelebration: View {
+/// 正解したときに全面へ出すゲット演出。
+private struct NameBuilderGetOverlay: View {
+  let result: QuizResult
+  let imageCache: PokemonImageCache?
   let onNext: () -> Void
 
   var body: some View {
     ZStack {
-      Color.black.opacity(0.42).ignoresSafeArea()
+      DesignColor.yellow.opacity(0.97).ignoresSafeArea()
 
-      VStack(spacing: 24) {
-        Text("ゲット")
-          .font(.system(size: 62, weight: .black, design: .rounded))
+      VStack(spacing: 16) {
+        Spacer(minLength: 0)
+        QuizSpriteImage(pokemon: result.pokemon, imageCache: imageCache, size: 172)
+          .frame(width: 214, height: 214)
+          .background(DesignColor.paper, in: Circle())
+          .overlay(Circle().strokeBorder(DesignColor.ink, lineWidth: 6))
+
+        Text(result.isNewCatch ? NameBuilderText.getHeadline : NameBuilderText.correctHeadline)
+          .font(.system(size: 62, weight: .heavy, design: .rounded))
           .foregroundStyle(.white)
-          .shadow(color: NameBuilderPalette.ink, radius: 0, x: 0, y: 5)
-        Text("ずかん に とうろく したよ")
-          .font(.system(size: 20, weight: .heavy, design: .rounded))
-          .foregroundStyle(.white)
+          .lineLimit(1)
+          .minimumScaleFactor(0.5)
+          .shadow(color: DesignColor.ink, radius: 0, x: 3, y: 0)
+          .shadow(color: DesignColor.ink, radius: 0, x: -3, y: 0)
+          .shadow(color: DesignColor.ink, radius: 0, x: 0, y: 3)
+          .shadow(color: DesignColor.ink, radius: 0, x: 0, y: -3)
+
+        Text(result.pokemon.japaneseName)
+          .font(.system(size: 42, weight: .heavy, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .lineLimit(1)
+          .minimumScaleFactor(0.4)
+          .padding(.horizontal, 24)
+          .padding(.vertical, 12)
+          .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+          .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+              .strokeBorder(DesignColor.ink, lineWidth: 5)
+          }
+
+        Text(result.isNewCatch ? NameBuilderText.registered : NameBuilderText.alreadyRegistered)
+          .font(.system(size: 18, weight: .heavy, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .lineLimit(1)
+          .minimumScaleFactor(0.5)
+        Spacer(minLength: 0)
 
         Button(action: onNext) {
-          Text("つぎへ")
-            .font(.system(size: 28, weight: .black, design: .rounded))
-            .foregroundStyle(NameBuilderPalette.ink)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(NameBuilderPalette.yellow, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+          Text(NameBuilderText.next)
+            .font(.system(size: 34, weight: .heavy, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .background(DesignColor.green, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
             .overlay {
               RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .strokeBorder(NameBuilderPalette.ink, lineWidth: 5)
+                .strokeBorder(DesignColor.ink, lineWidth: 5)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("name_builder_next_button")
       }
-      .padding(32)
+      .padding(.horizontal, 24)
+      .padding(.vertical, 28)
+      .frame(maxWidth: 520)
+      .frame(maxWidth: .infinity)
     }
-  }
-}
-
-/// 読み込みに失敗した時などに出す案内。
-private struct NameBuilderMessage: View {
-  let text: String
-
-  var body: some View {
-    Text(text)
-      .font(.system(size: 22, weight: .heavy, design: .rounded))
-      .foregroundStyle(NameBuilderPalette.ink)
-      .multilineTextAlignment(.center)
-      .padding(24)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("name_builder_get_overlay")
   }
 }
 
 /// 子ビューを横に並べ、入り切らない分を次の行へ折り返して中央に寄せる。
 ///
-/// マスとタイルは幅が固定でグリッドの列数に合わせて伸ばしたくないため、`LazyVGrid` ではなくこの `Layout` を使う。
+/// マスとタイルは幅が固定で、列数に合わせて伸ばしたくないため `LazyVGrid` ではなくこの `Layout` を使う。
 private struct WrappingRows: Layout {
   let spacing: CGFloat
 
@@ -478,8 +463,7 @@ private struct WrappingRows: Layout {
 
     for index in subviews.indices {
       let size = subviews[index].sizeThatFits(.unspecified)
-      let widthWithSubview = row.indices.isEmpty ? size.width : row.width + spacing + size.width
-      if !row.indices.isEmpty, widthWithSubview > maxWidth {
+      if !row.indices.isEmpty, row.width + spacing + size.width > maxWidth {
         rows.append(row)
         row = Row()
       }

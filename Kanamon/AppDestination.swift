@@ -16,3 +16,10 @@ enum AppDestination: String, CaseIterable, Hashable, Identifiable {
 
   var id: String { rawValue }
 }
+
+/// ずかんのセルからよみれんしゅうへ進む時の遷移値。どの 1 匹を開くかをポケモン ID で持つ。
+///
+/// `AppDestination` はホームの導線として `CaseIterable` を保つ必要があるため、関連値を持つ遷移はこちらに分ける。
+struct YomiRenshuDestination: Hashable {
+  let pokemonID: Int
+}
