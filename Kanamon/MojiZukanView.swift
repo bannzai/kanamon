@@ -7,13 +7,24 @@ import SwiftUI
 /// (`MojiZukanTests` で検証する)。
 enum MojiZukanText {
   static let title = "もじ ずかん"
-  static let description = "なまえ を よんだり かいたり すると もじ が うまって いくよ"
+  static let description = "なまえ を よんだり あてたり すると もじ が うまって いくよ"
   static let loading = "よみこみちゅう"
   static let loadFailed = "モンスター を よみこめなかったよ  つながって から もう いちど ひらいてね"
   static let noPokemon = "この もじ が つく モンスター は まだ いないよ"
   static let notCaughtHint = "クイズ で あてると なまえ が わかるよ"
   static let unknownName = "？？？"
   static let close = "とじる"
+  static let read = "よめた"
+  static let notRead = "まだ"
+
+  /// 名前のどこが探している文字に当たるかを、目で見なくても分かるように読み上げる文言。
+  static func matchPositions(character: Character, positions: [Int]) -> String {
+    guard !positions.isEmpty else {
+      return ""
+    }
+
+    return "\(character) は \(positions.map { "\($0) ばんめ" }.joined(separator: " と "))"
+  }
 
   static func sheetTitle(character: Character) -> String {
     "\(character) が つく モンスター"
@@ -25,7 +36,8 @@ enum MojiZukanText {
 
   /// 画面に出す固定の文言 (文字数で変わらないもの) の一覧。
   static let all: [String] = [
-    title, description, loading, loadFailed, noPokemon, notCaughtHint, unknownName, close,
+    title, description, loading, loadFailed, noPokemon, notCaughtHint, unknownName, close, read,
+    notRead,
   ]
 }
 
@@ -231,6 +243,9 @@ private struct GojuonCell: View {
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         .stroke(isRead ? DesignColor.ink : DesignColor.sandBorder, lineWidth: 3)
     )
+    // 読めたかどうかを色だけで表すと VoiceOver では区別できないため、値としても伝える
+    .accessibilityElement(children: .combine)
+    .accessibilityValue(isRead ? MojiZukanText.read : MojiZukanText.notRead)
   }
 }
 
@@ -393,6 +408,15 @@ private struct CharacterPokemonRow: View {
   let isCaught: Bool
   let imageCache: PokemonImageCache?
 
+  private var nameCharacters: [NameCharacter] {
+    PokemonCharacterSearch.nameCharacters(pokemon: pokemon, highlighting: character)
+  }
+
+  /// 一致した文字が名前の何番目かを 1 から数えて返す。
+  private var matchPositions: [Int] {
+    nameCharacters.filter(\.isMatch).map { $0.id + 1 }
+  }
+
   var body: some View {
     HStack(spacing: 12) {
       PokemonSpriteView(pokemon: pokemon, isCaught: isCaught, imageCache: imageCache)
@@ -403,7 +427,7 @@ private struct CharacterPokemonRow: View {
           .opacity(0.55)
         if isCaught {
           HStack(spacing: 0) {
-            ForEach(PokemonCharacterSearch.nameCharacters(pokemon: pokemon, highlighting: character)) { nameCharacter in
+            ForEach(nameCharacters) { nameCharacter in
               Text(String(nameCharacter.character))
                 .font(.system(size: 23, weight: .heavy, design: .rounded))
                 .foregroundStyle(nameCharacter.isMatch ? DesignColor.red : DesignColor.ink)
@@ -430,6 +454,12 @@ private struct CharacterPokemonRow: View {
     .overlay(
       RoundedRectangle(cornerRadius: 18, style: .continuous)
         .stroke(DesignColor.ink, lineWidth: 4)
+    )
+    // 名前のどこが該当文字かを赤字と下線だけで表すと VoiceOver では分からないため、値としても伝える。
+    // 正規化して一致する組み合わせ (ヒ に対する ピ など) は名前を聞くだけでは対応が付かない
+    .accessibilityElement(children: .combine)
+    .accessibilityValue(
+      isCaught ? MojiZukanText.matchPositions(character: character, positions: matchPositions) : ""
     )
   }
 }

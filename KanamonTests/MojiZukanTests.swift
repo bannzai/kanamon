@@ -60,9 +60,25 @@ final class MojiZukanTests: XCTestCase {
     )
   }
 
+  /// 名前のどこが該当文字かを、色ではなく読み上げでも伝えられるようにする。
+  func testMatchPositionsDescribesWhereTheCharacterAppears() {
+    XCTAssertEqual(MojiZukanText.matchPositions(character: "カ", positions: [3]), "カ は 3 ばんめ")
+    XCTAssertEqual(
+      MojiZukanText.matchPositions(character: "ツ", positions: [2, 3]),
+      "ツ は 2 ばんめ と 3 ばんめ"
+    )
+    XCTAssertEqual(MojiZukanText.matchPositions(character: "ヌ", positions: []), "")
+  }
+
   /// 子どもが読めるように、画面に出す文言は漢字を使わずひらがな・カタカナだけで書く。
   func testMojiZukanTextsUseNoKanji() {
-    for text in MojiZukanText.all + [MojiZukanText.sheetTitle(character: "ア"), MojiZukanText.pokemonCount(count: 3)] {
+    let texts =
+      MojiZukanText.all + [
+        MojiZukanText.sheetTitle(character: "ア"),
+        MojiZukanText.pokemonCount(count: 3),
+        MojiZukanText.matchPositions(character: "カ", positions: [3]),
+      ]
+    for text in texts {
       XCTAssertFalse(text.containsKanji, "\(text) に漢字が含まれている")
     }
   }
