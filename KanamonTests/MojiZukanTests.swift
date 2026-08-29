@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import SwiftUI
 import XCTest
 
@@ -77,6 +78,33 @@ final class MojiZukanTests: XCTestCase {
     XCTAssertNotNil(MojiZukanView(path: .constant(NavigationPath())).body)
   }
 
+  /// 逆引きシートは読み込みの完了より先に開けるため、読み込み後の一覧をモデル経由で見られるようにする。
+  @MainActor
+  func testModelExposesProgressAndReverseLookupAfterLoading() async throws {
+    let modelContext = ModelContext(PersistenceController(isStoredInMemoryOnly: true).container)
+    let learningProgressStore = LearningProgressStore(modelContext: modelContext)
+    try learningProgressStore.markRead(character: "ピ")
+    try learningProgressStore.markPokemonCaught(id: 1)
+
+    let model = MojiZukanModel(
+      repository: PokemonRepository(
+        modelContext: modelContext,
+        dataSource: StubPokemonDataSource(),
+        pokemonIDs: [1, 2]
+      ),
+      learningProgressStore: learningProgressStore,
+      imageCache: nil
+    )
+    await model.load()
+
+    XCTAssertEqual(model.state, .loaded)
+    XCTAssertEqual(model.progressText, "1 / 46")
+    XCTAssertTrue(model.isRead("ヒ"))
+    XCTAssertEqual(model.pokemons(containing: "ヒ").map(\.id), [1])
+    XCTAssertTrue(model.isCaught(model.pokemons[0]))
+    XCTAssertFalse(model.isCaught(model.pokemons[1]))
+  }
+
   private func sampleSpriteURL(id: Int) -> URL {
     URL(string: "https://example.com/\(id).png")!
   }
@@ -86,5 +114,16 @@ extension String {
   /// CJK 統合漢字 (U+4E00-U+9FFF) を含むか。
   fileprivate var containsKanji: Bool {
     unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }
+  }
+}
+
+/// 実在のポケモンを使わずに逆引きを検証するための、架空の名前を返すデータソース。
+private struct StubPokemonDataSource: PokemonDataSource {
+  func fetchPokemon(id: Int) async throws -> Pokemon {
+    Pokemon(
+      id: id,
+      japaneseName: id == 1 ? "ピカモン" : "ヌルモン",
+      spriteURL: URL(string: "https://example.com/\(id).png")!
+    )
   }
 }

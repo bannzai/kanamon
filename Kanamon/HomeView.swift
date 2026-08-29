@@ -40,11 +40,12 @@ struct HomeMenuItem: Identifiable {
   static let all: [HomeMenuItem] = AppDestination.allCases.map(HomeMenuItem.init(destination:))
 }
 
-/// ホーム画面。ずかん・よみれんしゅう・クイズへの導線を大きなボタンで並べる。
+/// ホーム画面。ずかん・よみれんしゅう・クイズ・もじ ずかんへの導線を大きなボタンで並べる。
 ///
 /// 子どもが 1 人で迷わないよう、階層はホームと各画面の 2 段だけにする。
 struct HomeView: View {
-  /// もじ ずかんからよみれんしゅうへ送るなど、画面の中から遷移させるために経路を持つ。
+  /// もじ ずかんの逆引きシートからよみれんしゅうへ送るために経路を持つ。
+  /// シートの中からの遷移はリンクで書けず、経路への追加でしか行えない。
   @State private var path = NavigationPath()
 
   var body: some View {
@@ -56,12 +57,6 @@ struct HomeView: View {
           }
           .buttonStyle(.plain)
         }
-        #if DEBUG
-          NavigationLink("開発者オプション") {
-            DeveloperOptionsView()
-          }
-          .accessibilityIdentifier("debug_menu_link")
-        #endif
       }
       .padding(24)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -69,14 +64,15 @@ struct HomeView: View {
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
         switch destination {
+        case .zukan:
+          PokedexView()
+        case .quiz:
+          QuizView()
         case .mojiZukan:
           MojiZukanView(path: $path)
-        case .zukan, .yomiRenshu, .quiz:
+        case .yomiRenshu:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
-      }
-      .navigationDestination(for: MojiZukanYomiRenshuTarget.self) { _ in
-        PlaceholderView(title: MojiZukanText.yomiRenshu)
       }
     }
   }

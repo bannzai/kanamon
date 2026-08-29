@@ -30,28 +30,13 @@ enum MojiZukanText {
   ]
 }
 
-/// もじ ずかん画面で使う色。デザイン仕様 (documents/design/README.md「6. スタイルトークン」) に合わせる。
-enum MojiZukanStyle {
-  /// インク (文字・枠) `#33241A`
-  static let ink = Color(red: 0.200, green: 0.141, blue: 0.102)
-  /// クリーム (シートの地) `#FFF6E3`
-  static let cream = Color(red: 1.000, green: 0.965, blue: 0.890)
-  /// もじずかんの地の色 `#FFF0F6`
-  static let background = Color(red: 1.000, green: 0.941, blue: 0.965)
-  /// 砂 (未習の文字・未ゲット) `#F0E3C9`
-  static let sand = Color(red: 0.941, green: 0.890, blue: 0.788)
-  /// 砂の枠 `#C8B698`
-  static let sandBorder = Color(red: 0.784, green: 0.714, blue: 0.596)
-  /// 砂の文字 `#A8977A`
-  static let sandInk = Color(red: 0.659, green: 0.592, blue: 0.478)
-  /// 青 (ひらがなの併記) `#1F7FC4`
-  static let blue = Color(red: 0.122, green: 0.498, blue: 0.769)
-  /// 黄 (進捗のピル・該当文字の下線) `#FFC22E`
-  static let yellow = Color(red: 1.000, green: 0.761, blue: 0.180)
-  /// 緑 (進捗バー) `#4CC66A`
-  static let green = Color(red: 0.298, green: 0.776, blue: 0.416)
-  /// 図鑑の赤 (該当文字) `#D93B2B`
-  static let red = Color(red: 0.851, green: 0.231, blue: 0.169)
+/// もじ ずかん画面だけで使う色。共通のトークンは `DesignColor` を使い、ここには画面固有のものだけ置く。
+enum MojiZukanColor {
+  /// もじずかんの地の色 `#FFF0F6` (documents/design/README.md「6. スタイルトークン > 画面ごとの地の色」)
+  static let background = Color(hex: 0xFFF0F6)
+  /// ひらがなの併記に使う濃い青 `#1F7FC4`。
+  /// `DesignColor.blue` (#2BA9FF) は小さい文字だと白地で読みづらいため、プロトタイプの --blue-dk を使う。
+  static let blueDark = Color(hex: 0x1F7FC4)
 }
 
 /// もじ ずかん画面。五十音 46 文字を 5 列で並べ、出会った文字だけを色付きで埋める。
@@ -59,77 +44,86 @@ enum MojiZukanStyle {
 /// 文字をタップするとその音を読み上げ、その文字が名前に入っているポケモンを下から出すシートで見せる。
 /// 進捗はこの画面では増えない (よみれんしゅう・クイズ・かきれんしゅう・なまえ づくりが追記する)。
 struct MojiZukanView: View {
-  /// よみれんしゅうへ送るための、ホーム画面が持つ NavigationStack の経路。
+  /// ホーム画面が持つ NavigationStack の経路。逆引きシートからよみれんしゅうへ送るために受け取る。
   ///
-  /// この画面の中で `navigationDestination` を宣言するとシートが出なくなるため、遷移先の登録は
-  /// ホーム画面側にまとめ、この画面は経路への追加だけを行う。
+  /// ずかん画面のようにセルへ `NavigationLink` を置く形にできないため (シートの中は経路の外にある)、
+  /// 経路へ値を積んで遷移させる。
   @Binding var path: NavigationPath
 
   @Environment(\.modelContext) private var modelContext
-
-  @State private var readCharacters: Set<Character> = []
-  @State private var caughtPokemonIDs: Set<Int> = []
-  @State private var pokemon: [Pokemon] = []
-  @State private var loadState: MojiZukanLoadState = .loading
+  @State private var model: MojiZukanModel?
   @State private var selection: MojiZukanSelection?
-
-  private var readCount: Int {
-    GojuonTable.readCount(in: readCharacters)
-  }
 
   var body: some View {
     VStack(spacing: 14) {
-      progressCard
-      gojuonCard
+      if let model {
+        progressCard(model: model)
+        gojuonCard(model: model)
+      } else {
+        ProgressView()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
     }
     .padding(16)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(MojiZukanStyle.background)
+    .background(MojiZukanColor.background)
     .navigationTitle(MojiZukanText.title)
     .navigationBarTitleDisplayMode(.inline)
-    .task { await load() }
+    .navigationDestination(for: YomiRenshuDestination.self) { _ in
+      // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える
+      PlaceholderView(title: MojiZukanText.yomiRenshu)
+    }
+    .task {
+      let model = self.model ?? MojiZukanModel(modelContext: modelContext)
+      self.model = model
+
+      if model.state != .loaded {
+        await model.load()
+      }
+    }
     .sheet(item: $selection) { selection in
-      CharacterPokemonSheet(
-        character: selection.character,
-        pokemon: PokemonCharacterSearch.pokemon(containing: selection.character, in: pokemon),
-        caughtPokemonIDs: caughtPokemonIDs,
-        loadState: loadState,
-        onSelect: { pokemon in
-          self.selection = nil
-          path.append(MojiZukanYomiRenshuTarget(pokemonID: pokemon.id))
-        }
-      )
+      if let model {
+        CharacterPokemonSheet(
+          character: selection.character,
+          model: model,
+          onSelect: { pokemon in
+            self.selection = nil
+            path.append(YomiRenshuDestination(pokemonID: pokemon.id))
+          }
+        )
+      }
     }
   }
 
-  private var progressCard: some View {
+  private func progressCard(model: MojiZukanModel) -> some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .top, spacing: 10) {
         Text(MojiZukanText.description)
           .font(.system(size: 15, weight: .bold, design: .rounded))
           .frame(maxWidth: .infinity, alignment: .leading)
-        Text("\(readCount) / \(GojuonTable.characters.count)")
+        Text(model.progressText)
           .font(.system(size: 16, weight: .heavy, design: .rounded))
+          .monospacedDigit()
           .padding(.horizontal, 11)
           .frame(height: 40)
-          .background(MojiZukanStyle.yellow, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+          .background(DesignColor.yellow, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
           .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-              .stroke(MojiZukanStyle.ink, lineWidth: 4)
+              .stroke(DesignColor.ink, lineWidth: 4)
           )
       }
-      MojiZukanProgressBar(ratio: Double(readCount) / Double(GojuonTable.characters.count))
+      MojiZukanProgressBar(ratio: model.progressFraction)
     }
-    .foregroundStyle(MojiZukanStyle.ink)
+    .foregroundStyle(DesignColor.ink)
     .padding(14)
     .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 26, style: .continuous)
-        .stroke(MojiZukanStyle.ink, lineWidth: 5)
+        .stroke(DesignColor.ink, lineWidth: 5)
     )
   }
 
-  private var gojuonCard: some View {
+  private func gojuonCard(model: MojiZukanModel) -> some View {
     ScrollView {
       LazyVGrid(
         columns: Array(
@@ -142,9 +136,9 @@ struct MojiZukanView: View {
           if let character {
             Button {
               selection = MojiZukanSelection(character: character)
-              KanaSpeechSynthesizer.shared.speak(String(character))
+              SpeechSynthesizer.shared.speak(String(character))
             } label: {
-              GojuonCell(character: character, isRead: readCharacters.contains(character))
+              GojuonCell(character: character, isRead: model.isRead(character))
             }
             .buttonStyle(.plain)
           } else {
@@ -158,29 +152,9 @@ struct MojiZukanView: View {
     .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 26, style: .continuous)
-        .stroke(MojiZukanStyle.ink, lineWidth: 5)
+        .stroke(DesignColor.ink, lineWidth: 5)
     )
   }
-
-  private func load() async {
-    let store = LearningProgressStore(modelContext: modelContext)
-    readCharacters = (try? store.readCharacters()) ?? []
-    caughtPokemonIDs = (try? store.caughtPokemonIDs()) ?? []
-
-    do {
-      pokemon = try await PokemonRepository(modelContext: modelContext).loadFirstGeneration()
-      loadState = .loaded
-    } catch {
-      loadState = .failed
-    }
-  }
-}
-
-/// 逆引きに使うポケモンの読み込み状況。シートに出す文言を切り替えるために持つ。
-enum MojiZukanLoadState {
-  case loading
-  case loaded
-  case failed
 }
 
 /// 逆引きシートで表示中の文字。
@@ -188,11 +162,6 @@ private struct MojiZukanSelection: Identifiable {
   let character: Character
 
   var id: Character { character }
-}
-
-/// 逆引きシートから選んだポケモン。よみれんしゅうへの遷移先を表す。
-struct MojiZukanYomiRenshuTarget: Hashable {
-  let pokemonID: Int
 }
 
 /// 五十音表の 1 マス。カタカナを大きく、対応するひらがなを小さく併記する。
@@ -206,17 +175,17 @@ private struct GojuonCell: View {
         .font(.system(size: 22, weight: .heavy, design: .rounded))
       Text(KatakanaConverter.hiragana(from: String(character)))
         .font(.system(size: 11, weight: .bold, design: .rounded))
-        .foregroundStyle(isRead ? MojiZukanStyle.blue : MojiZukanStyle.sandInk)
+        .foregroundStyle(isRead ? MojiZukanColor.blueDark : DesignColor.sandDark)
     }
-    .foregroundStyle(isRead ? MojiZukanStyle.ink : MojiZukanStyle.sandInk)
+    .foregroundStyle(isRead ? DesignColor.ink : DesignColor.sandDark)
     .frame(maxWidth: .infinity, minHeight: 62)
     .background(
-      isRead ? Color.white : MojiZukanStyle.sand,
+      isRead ? Color.white : DesignColor.sand,
       in: RoundedRectangle(cornerRadius: 12, style: .continuous)
     )
     .overlay(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .stroke(isRead ? MojiZukanStyle.ink : MojiZukanStyle.sandBorder, lineWidth: 3)
+        .stroke(isRead ? DesignColor.ink : DesignColor.sandBorder, lineWidth: 3)
     )
   }
 }
@@ -228,26 +197,28 @@ private struct MojiZukanProgressBar: View {
   var body: some View {
     GeometryReader { proxy in
       ZStack(alignment: .leading) {
-        Capsule().fill(MojiZukanStyle.cream)
+        Capsule().fill(DesignColor.cream)
         Capsule()
-          .fill(MojiZukanStyle.green)
+          .fill(DesignColor.green)
           .frame(width: proxy.size.width * min(max(ratio, 0), 1))
       }
     }
     .frame(height: 22)
-    .overlay(Capsule().stroke(MojiZukanStyle.ink, lineWidth: 4))
+    .overlay(Capsule().stroke(DesignColor.ink, lineWidth: 4))
   }
 }
 
 /// タップした文字が名前に入っているポケモンを並べる、下から出るシート。
 private struct CharacterPokemonSheet: View {
   let character: Character
-  let pokemon: [Pokemon]
-  let caughtPokemonIDs: Set<Int>
-  let loadState: MojiZukanLoadState
+  let model: MojiZukanModel
   let onSelect: (Pokemon) -> Void
 
   @Environment(\.dismiss) private var dismiss
+
+  private var pokemon: [Pokemon] {
+    model.pokemons(containing: character)
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -258,21 +229,22 @@ private struct CharacterPokemonSheet: View {
             MojiZukanNote(text: note)
           }
           ForEach(pokemon, id: \.id) { pokemon in
-            let isCaught = caughtPokemonIDs.contains(pokemon.id)
+            let isCaught = model.isCaught(pokemon)
             Button {
               guard isCaught else { return }
-              KanaSpeechSynthesizer.shared.speak(pokemon.japaneseName)
+              SpeechSynthesizer.shared.speak(pokemon.japaneseName)
               onSelect(pokemon)
             } label: {
               CharacterPokemonRow(
                 pokemon: pokemon,
                 character: character,
-                isCaught: isCaught
+                isCaught: isCaught,
+                imageCache: model.imageCache
               )
             }
             .buttonStyle(.plain)
           }
-          if !pokemon.isEmpty && pokemon.contains(where: { !caughtPokemonIDs.contains($0.id) }) {
+          if !pokemon.isEmpty && pokemon.contains(where: { !model.isCaught($0) }) {
             MojiZukanNote(text: MojiZukanText.notCaughtHint)
           }
         }
@@ -281,7 +253,7 @@ private struct CharacterPokemonSheet: View {
     }
     .padding(16)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .background(MojiZukanStyle.cream)
+    .background(DesignColor.cream)
     .presentationDetents([.fraction(0.74), .large])
     .presentationDragIndicator(.visible)
   }
@@ -292,7 +264,7 @@ private struct CharacterPokemonSheet: View {
       return nil
     }
 
-    return switch loadState {
+    return switch model.state {
     case .loading: MojiZukanText.loading
     case .failed: MojiZukanText.loadFailed
     case .loaded: MojiZukanText.noPokemon
@@ -306,13 +278,13 @@ private struct CharacterPokemonSheet: View {
           .font(.system(size: 28, weight: .heavy, design: .rounded))
         Text(KatakanaConverter.hiragana(from: String(character)))
           .font(.system(size: 12, weight: .bold, design: .rounded))
-          .foregroundStyle(MojiZukanStyle.blue)
+          .foregroundStyle(MojiZukanColor.blueDark)
       }
       .frame(width: 62, height: 62)
-      .background(MojiZukanStyle.yellow, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .background(DesignColor.yellow, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(MojiZukanStyle.ink, lineWidth: 4)
+          .stroke(DesignColor.ink, lineWidth: 4)
       )
 
       VStack(alignment: .leading, spacing: 4) {
@@ -330,15 +302,15 @@ private struct CharacterPokemonSheet: View {
       } label: {
         Image(systemName: "xmark")
           .font(.system(size: 22, weight: .heavy))
-          .foregroundStyle(MojiZukanStyle.ink)
+          .foregroundStyle(DesignColor.ink)
           .frame(width: 52, height: 52)
           .background(Color.white, in: Circle())
-          .overlay(Circle().stroke(MojiZukanStyle.ink, lineWidth: 4))
+          .overlay(Circle().stroke(DesignColor.ink, lineWidth: 4))
       }
       .buttonStyle(.plain)
       .accessibilityLabel(MojiZukanText.close)
     }
-    .foregroundStyle(MojiZukanStyle.ink)
+    .foregroundStyle(DesignColor.ink)
   }
 }
 
@@ -347,10 +319,12 @@ private struct CharacterPokemonRow: View {
   let pokemon: Pokemon
   let character: Character
   let isCaught: Bool
+  let imageCache: PokemonImageCache?
 
   var body: some View {
     HStack(spacing: 12) {
-      PokemonSpriteView(pokemon: pokemon, isCaught: isCaught)
+      PokemonSpriteView(pokemon: pokemon, isCaught: isCaught, imageCache: imageCache)
+        .frame(width: 52, height: 52)
       VStack(alignment: .leading, spacing: 4) {
         Text(String(format: "No.%03d", pokemon.id))
           .font(.system(size: 12, weight: .heavy, design: .rounded))
@@ -360,10 +334,10 @@ private struct CharacterPokemonRow: View {
             ForEach(PokemonCharacterSearch.nameCharacters(of: pokemon, highlighting: character)) { nameCharacter in
               Text(String(nameCharacter.character))
                 .font(.system(size: 23, weight: .heavy, design: .rounded))
-                .foregroundStyle(nameCharacter.isMatch ? MojiZukanStyle.red : MojiZukanStyle.ink)
+                .foregroundStyle(nameCharacter.isMatch ? DesignColor.red : DesignColor.ink)
                 .overlay(alignment: .bottom) {
                   if nameCharacter.isMatch {
-                    MojiZukanStyle.yellow.frame(height: 4)
+                    DesignColor.yellow.frame(height: 4)
                   }
                 }
             }
@@ -371,19 +345,19 @@ private struct CharacterPokemonRow: View {
         } else {
           Text(MojiZukanText.unknownName)
             .font(.system(size: 23, weight: .heavy, design: .rounded))
-            .foregroundStyle(MojiZukanStyle.sandInk)
+            .foregroundStyle(DesignColor.sandDark)
         }
       }
       Spacer(minLength: 0)
     }
-    .foregroundStyle(MojiZukanStyle.ink)
+    .foregroundStyle(DesignColor.ink)
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 18, style: .continuous)
-        .stroke(MojiZukanStyle.ink, lineWidth: 4)
+        .stroke(DesignColor.ink, lineWidth: 4)
     )
   }
 }
@@ -395,37 +369,10 @@ private struct MojiZukanNote: View {
   var body: some View {
     Text(text)
       .font(.system(size: 15, weight: .bold, design: .rounded))
-      .foregroundStyle(MojiZukanStyle.ink)
+      .foregroundStyle(DesignColor.ink)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(12)
-      .background(MojiZukanStyle.sand, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-  }
-}
-
-/// キャッシュ済みのスプライト画像を出す。未ゲットのポケモンはシルエットにしてネタバレを避ける。
-private struct PokemonSpriteView: View {
-  let pokemon: Pokemon
-  let isCaught: Bool
-
-  @State private var imageData: Data?
-
-  var body: some View {
-    Group {
-      if let imageData, let image = UIImage(data: imageData) {
-        Image(uiImage: image)
-          .renderingMode(isCaught ? .original : .template)
-          .resizable()
-          .scaledToFit()
-          .foregroundStyle(Color.black.opacity(0.34))
-      } else {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .fill(MojiZukanStyle.sand)
-      }
-    }
-    .frame(width: 52, height: 52)
-    .task {
-      imageData = try? await PokemonImageCache.shared?.imageData(for: pokemon)
-    }
+      .background(DesignColor.sand, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
   }
 }
 
