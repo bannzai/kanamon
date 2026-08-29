@@ -34,6 +34,7 @@ struct YomiRenshuView: View {
   private let initialPokemonID: Int?
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
   @State private var model: YomiRenshuModel? = nil
 
   /// 送りと判定する指の横移動の下限。縦スクロールのつもりの指を送りと誤認しない大きさにする。
@@ -61,7 +62,9 @@ struct YomiRenshuView: View {
     content
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .background(YomiRenshuPalette.background)
-      .navigationBarTitleDisplayMode(.inline)
+      // NavigationStack は自前の地の色 (白) を敷くため、筐体の内側をクリームで塗り直す (ContentView が筐体を 1 度だけ包む)
+      .background(DesignColor.cream)
+      .toolbar(.hidden, for: .navigationBar)
       .onDisappear {
         model?.stop()
       }
@@ -92,15 +95,21 @@ struct YomiRenshuView: View {
 
   private var loading: some View {
     VStack(spacing: 16) {
+      header(pokemon: nil)
+      Spacer()
       ProgressView()
       Text(YomiRenshuText.loading)
         .font(.system(size: 26, weight: .heavy, design: .rounded))
         .foregroundStyle(YomiRenshuPalette.ink)
+      Spacer()
     }
+    .padding(20)
   }
 
   private func failed(model: YomiRenshuModel) -> some View {
     VStack(spacing: 24) {
+      header(pokemon: nil)
+      Spacer()
       Text(YomiRenshuText.failed)
         .font(.system(size: 26, weight: .heavy, design: .rounded))
         .foregroundStyle(YomiRenshuPalette.ink)
@@ -116,9 +125,10 @@ struct YomiRenshuView: View {
             InkCard(cornerRadius: 30, fill: YomiRenshuPalette.red, borderWidth: 5, shadowOffset: 9)
           )
       }
-      .buttonStyle(.plain)
+      .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
+      Spacer()
     }
-    .padding(24)
+    .padding(20)
   }
 
   private func loaded(model: YomiRenshuModel) -> some View {
@@ -149,6 +159,7 @@ struct YomiRenshuView: View {
   /// 見出しと、右端の 3 桁の図鑑番号ピル。
   private func header(pokemon: Pokemon?) -> some View {
     HStack(spacing: 12) {
+      PokedexBackButton { dismiss() }
       Text(YomiRenshuText.title)
         .font(.system(size: 30, weight: .heavy, design: .rounded))
         .foregroundStyle(YomiRenshuPalette.ink)
@@ -213,7 +224,7 @@ struct YomiRenshuView: View {
           InkCard(cornerRadius: 30, fill: YomiRenshuPalette.red, borderWidth: 5, shadowOffset: 9)
         )
     }
-    .buttonStyle(.plain)
+    .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
   }
 
   /// 前後へ送るボタンと、いま何匹目かの表示。
@@ -245,7 +256,7 @@ struct YomiRenshuView: View {
           InkCard(cornerRadius: 20, fill: .white, borderWidth: 4, shadowOffset: 4)
         )
     }
-    .buttonStyle(.plain)
+    .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
   }
 
   /// 指を横に払った時だけ前後のポケモンへ送る。
@@ -333,7 +344,7 @@ private struct YomiRenshuCharacterCell: View {
       .offset(y: isHighlighted ? -5 : 0)
       .scaleEffect(isHighlighted ? 1.07 : 1)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
     .animation(.easeOut(duration: 0.12), value: isHighlighted)
   }
 }

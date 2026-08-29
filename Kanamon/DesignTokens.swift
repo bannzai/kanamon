@@ -25,6 +25,8 @@ enum DesignColor {
   static let green = Color(hex: 0x4CC66A)
   /// ピンク (もじずかん・さし色)
   static let pink = Color(hex: 0xFF9FC4)
+  /// 紫 (なまえ づくり)。README の色表には無く、確定プロトタイプのホームの導線だけで使う
+  static let purple = Color(hex: 0xA98BFF)
   /// 砂 (未ゲットの背景)
   static let sand = Color(hex: 0xF0E3C9)
   /// 砂の上の文字
