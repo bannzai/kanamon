@@ -48,6 +48,9 @@ final class KakiRenshuModel {
   /// ゲット演出で見せるポケモン。演出中でなければ nil にする。
   private(set) var caughtPokemon: Pokemon?
 
+  /// スプライト画像の取得に使うキャッシュ。画面側の `PokemonSpriteView` へ渡す。
+  let imageCache: PokemonImageCache?
+
   private var progressStore: LearningProgressStore?
   private let strokeCache: KanjiVGCache?
   /// 一度読んだ文字の画を保持し、同じ文字で再解析しないようにする。
@@ -56,8 +59,13 @@ final class KakiRenshuModel {
   /// 1 文字書けてから次の文字へ移るまでの待ち。「かけたね！」を読ませるために置く。
   private var advanceTask: Task<Void, Never>?
 
-  init(strokeCache: KanjiVGCache? = try? KanjiVGCache()) {
+  /// キャッシュディレクトリを作れない端末でも画面は開けるようにするため、生成に失敗したら nil を既定にする。
+  init(
+    strokeCache: KanjiVGCache? = try? KanjiVGCache(),
+    imageCache: PokemonImageCache? = try? PokemonImageCache()
+  ) {
     self.strokeCache = strokeCache
+    self.imageCache = imageCache
   }
 
   /// 今表示しているポケモン。まだ読み込めていなければ nil。
@@ -156,7 +164,7 @@ final class KakiRenshuModel {
     let character = characters[characterIndex]
     markWritten(character)
     message = KakiRenshuMessage.characterWritten
-    SpeechReader.shared.speak(String(character))
+    SpeechSynthesizer.shared.speak(String(character))
 
     let nextCharacterIndex = characterIndex + 1
     advanceTask = Task {
@@ -184,7 +192,7 @@ final class KakiRenshuModel {
       return
     }
 
-    SpeechReader.shared.speak(String(characters[characterIndex]))
+    SpeechSynthesizer.shared.speak(String(characters[characterIndex]))
   }
 
   private func markWritten(_ character: Character) {
@@ -200,7 +208,7 @@ final class KakiRenshuModel {
     try? progressStore?.markPokemonCaught(id: currentPokemon.id)
     message = KakiRenshuMessage.nameWritten
     caughtPokemon = currentPokemon
-    SpeechReader.shared.speak(currentPokemon.japaneseName)
+    SpeechSynthesizer.shared.speak(currentPokemon.japaneseName)
   }
 
   /// `startIndex` 以降で書き順データのある文字を探し、その文字のなぞりを始める。

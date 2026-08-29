@@ -1,29 +1,17 @@
 import SwiftUI
 
-/// かきれんしゅう画面で使う色。`documents/design/README.md`「6. スタイルトークン」の値をそのまま持つ。
-enum KakiRenshuStyle {
-  /// #33241A
-  static let ink = Color(red: 0.200, green: 0.141, blue: 0.102)
-  /// #FFF6E3
-  static let paper = Color(red: 1.000, green: 0.965, blue: 0.890)
-  /// #EAFBEE (かき画面の地の色)
-  static let background = Color(red: 0.918, green: 0.984, blue: 0.933)
-  /// #4CC66A
-  static let green = Color(red: 0.298, green: 0.776, blue: 0.416)
-  /// #2BA9FF
-  static let blue = Color(red: 0.169, green: 0.663, blue: 1.000)
-  /// #FFC22E
-  static let yellow = Color(red: 1.000, green: 0.761, blue: 0.180)
-  /// #D93B2B
-  static let red = Color(red: 0.851, green: 0.231, blue: 0.169)
-  /// #E0D3BA (お手本の薄い線)
-  static let ghost = Color(red: 0.878, green: 0.827, blue: 0.729)
-  /// #E4D9C4 (十字のガイド線)
-  static let guideLine = Color(red: 0.894, green: 0.851, blue: 0.769)
-  /// #E9DFCC (書き終えた画の番号)
-  static let pastNumber = Color(red: 0.914, green: 0.874, blue: 0.800)
-  /// #A8977A
-  static let sand = Color(red: 0.659, green: 0.592, blue: 0.478)
+/// かきれんしゅう画面だけで使う色。共通のスタイルトークンは `DesignColor` を参照する。
+enum KakiRenshuColor {
+  /// かき画面の地の色 (README「6. スタイルトークン」の画面ごとの地の色)
+  static let background = Color(hex: 0xEAFBEE)
+  /// お手本として薄く出す全画の線
+  static let ghost = Color(hex: 0xE0D3BA)
+  /// なぞり面の十字のガイド線
+  static let guideLine = Color(hex: 0xE4D9C4)
+  /// 書き終えた画の番号の地
+  static let writtenNumber = Color(hex: 0xE9DFCC)
+  /// 書き終えた画の番号の枠
+  static let writtenNumberBorder = Color(hex: 0xBCAC90)
 }
 
 /// かきれんしゅう画面。名前の文字を 1 文字ずつ、書き順の番号と進行方向の矢印に沿ってなぞる。
@@ -42,10 +30,10 @@ struct KakiRenshuView: View {
 
   var body: some View {
     ZStack {
-      KakiRenshuStyle.background.ignoresSafeArea()
+      KakiRenshuColor.background.ignoresSafeArea()
       content
       if let caughtPokemon = model.caughtPokemon {
-        CaughtCelebrationView(pokemon: caughtPokemon) {
+        CaughtCelebrationView(pokemon: caughtPokemon, imageCache: model.imageCache) {
           model.dismissCaughtPokemon()
         }
         .transition(.opacity)
@@ -58,7 +46,6 @@ struct KakiRenshuView: View {
     }
     .onDisappear {
       demoTask?.cancel()
-      SpeechReader.shared.stop()
     }
   }
 
@@ -88,7 +75,7 @@ struct KakiRenshuView: View {
       traceFace
       Text(model.message)
         .font(.system(size: 17, weight: .heavy, design: .rounded))
-        .foregroundStyle(KakiRenshuStyle.ink)
+        .foregroundStyle(DesignColor.ink)
         .multilineTextAlignment(.center)
         .lineLimit(2)
         .minimumScaleFactor(0.6)
@@ -104,7 +91,7 @@ struct KakiRenshuView: View {
   private var nameRow: some View {
     HStack(spacing: 12) {
       if let currentPokemon = model.currentPokemon {
-        PokemonSpriteImage(pokemon: currentPokemon)
+        PokemonSpriteView(pokemon: currentPokemon, isCaught: true, imageCache: model.imageCache)
           .frame(width: 56, height: 56)
       }
       ScrollView(.horizontal, showsIndicators: false) {
@@ -125,13 +112,13 @@ struct KakiRenshuView: View {
       }
       Text("\(model.characterIndex + 1) / \(max(model.characters.count, 1))")
         .font(.system(size: 15, weight: .heavy, design: .rounded))
-        .foregroundStyle(KakiRenshuStyle.ink)
+        .foregroundStyle(DesignColor.ink)
     }
     .padding(10)
-    .background(KakiRenshuStyle.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 20, style: .continuous)
-        .stroke(KakiRenshuStyle.ink, lineWidth: 5)
+        .stroke(DesignColor.ink, lineWidth: 5)
     )
   }
 
@@ -181,7 +168,7 @@ struct KakiRenshuView: View {
           .foregroundStyle(.white)
           .frame(maxWidth: .infinity, minHeight: 84)
           .background(
-            KakiRenshuStyle.blue,
+            DesignColor.blue,
             in: RoundedRectangle(cornerRadius: 26, style: .continuous)
           )
       }
@@ -193,10 +180,10 @@ struct KakiRenshuView: View {
       } label: {
         Image(systemName: "speaker.wave.3.fill")
           .font(.system(size: 32, weight: .bold))
-          .foregroundStyle(KakiRenshuStyle.ink)
+          .foregroundStyle(DesignColor.ink)
           .frame(width: 84, height: 84)
           .background(
-            KakiRenshuStyle.yellow,
+            DesignColor.yellow,
             in: RoundedRectangle(cornerRadius: 26, style: .continuous)
           )
       }
@@ -212,7 +199,7 @@ struct KakiRenshuView: View {
       } label: {
         Image(systemName: "chevron.left")
           .font(.system(size: 24, weight: .black))
-          .foregroundStyle(KakiRenshuStyle.ink)
+          .foregroundStyle(DesignColor.ink)
           .frame(width: 60, height: 60)
       }
       .buttonStyle(.plain)
@@ -221,7 +208,7 @@ struct KakiRenshuView: View {
       Spacer()
       Text("ほかの モンスター の なまえ")
         .font(.system(size: 14, weight: .heavy, design: .rounded))
-        .foregroundStyle(KakiRenshuStyle.ink.opacity(0.65))
+        .foregroundStyle(DesignColor.ink.opacity(0.65))
       Spacer()
 
       Button {
@@ -229,7 +216,7 @@ struct KakiRenshuView: View {
       } label: {
         Image(systemName: "chevron.right")
           .font(.system(size: 24, weight: .black))
-          .foregroundStyle(KakiRenshuStyle.ink)
+          .foregroundStyle(DesignColor.ink)
           .frame(width: 60, height: 60)
       }
       .buttonStyle(.plain)
@@ -245,7 +232,7 @@ struct KakiRenshuView: View {
       Link(KakiRenshuAttribution.licenseURL.absoluteString, destination: KakiRenshuAttribution.licenseURL)
     }
     .font(.system(size: 10, weight: .medium))
-    .foregroundStyle(KakiRenshuStyle.sand)
+    .foregroundStyle(DesignColor.sandDark)
     .multilineTextAlignment(.center)
   }
 
@@ -295,24 +282,24 @@ private struct NameCharacterLabel: View {
   var body: some View {
     Text(String(character))
       .font(.system(size: 26, weight: .heavy, design: .rounded))
-      .foregroundStyle(isCurrent ? KakiRenshuStyle.ink : (isWritten ? .white : KakiRenshuStyle.ink))
+      .foregroundStyle(isCurrent ? DesignColor.ink : (isWritten ? .white : DesignColor.ink))
       .frame(minWidth: 40, minHeight: 46)
       .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .stroke(KakiRenshuStyle.ink, lineWidth: 4)
+          .stroke(DesignColor.ink, lineWidth: 4)
       )
   }
 
   private var background: Color {
     if isCurrent {
-      return KakiRenshuStyle.yellow
+      return DesignColor.yellow
     }
     if isWritten {
-      return KakiRenshuStyle.green
+      return DesignColor.green
     }
 
-    return KakiRenshuStyle.paper
+    return DesignColor.cream
   }
 }
 
@@ -331,7 +318,7 @@ private struct TraceCanvas: View {
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      KakiRenshuStyle.paper
+      DesignColor.cream
 
       guideGrid
       ghostStrokes
@@ -358,7 +345,7 @@ private struct TraceCanvas: View {
     .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 26, style: .continuous)
-        .stroke(KakiRenshuStyle.ink, lineWidth: 6)
+        .stroke(DesignColor.ink, lineWidth: 6)
     )
     .contentShape(Rectangle())
     .gesture(
@@ -383,14 +370,14 @@ private struct TraceCanvas: View {
         }
       )
     )
-    .stroke(KakiRenshuStyle.guideLine, style: StrokeStyle(lineWidth: scale, dash: [4 * scale, 4 * scale]))
+    .stroke(KakiRenshuColor.guideLine, style: StrokeStyle(lineWidth: scale, dash: [4 * scale, 4 * scale]))
     .frame(width: side, height: side, alignment: .topLeading)
   }
 
   private var ghostStrokes: some View {
     ScaledPath(content: scaled(combinedPath(of: strokes)))
       .stroke(
-        KakiRenshuStyle.ghost,
+        KakiRenshuColor.ghost,
         style: StrokeStyle(lineWidth: 5.5 * scale, lineCap: .round, lineJoin: .round)
       )
       .frame(width: side, height: side, alignment: .topLeading)
@@ -399,7 +386,7 @@ private struct TraceCanvas: View {
   private var writtenStrokes: some View {
     ScaledPath(content: scaled(combinedPath(of: Array(strokes.prefix(strokeIndex)))))
       .stroke(
-        KakiRenshuStyle.ink,
+        DesignColor.ink,
         style: StrokeStyle(lineWidth: 5.5 * scale, lineCap: .round, lineJoin: .round)
       )
       .frame(width: side, height: side, alignment: .topLeading)
@@ -411,7 +398,7 @@ private struct TraceCanvas: View {
       ScaledPath(content: scaled(Path(strokes[demoStrokeIndex].cgPath)))
         .trim(from: 0, to: demoProgress)
         .stroke(
-          KakiRenshuStyle.blue,
+          DesignColor.blue,
           style: StrokeStyle(lineWidth: 6 * scale, lineCap: .round, lineJoin: .round)
         )
         .frame(width: side, height: side, alignment: .topLeading)
@@ -429,7 +416,7 @@ private struct TraceCanvas: View {
         )
       )
       .stroke(
-        KakiRenshuStyle.green.opacity(0.85),
+        DesignColor.green.opacity(0.85),
         style: StrokeStyle(lineWidth: 7 * scale, lineCap: .round, lineJoin: .round)
       )
       .frame(width: side, height: side, alignment: .topLeading)
@@ -474,7 +461,7 @@ private struct StrokeNumberBadge: View {
 
     Text("\(number)")
       .font(.system(size: 9 * scale, weight: .heavy, design: .rounded))
-      .foregroundStyle(isWritten ? KakiRenshuStyle.sand : KakiRenshuStyle.ink)
+      .foregroundStyle(isWritten ? DesignColor.sandDark : DesignColor.ink)
       .frame(width: 14 * scale, height: 14 * scale)
       .background(background, in: Circle())
       .overlay(Circle().stroke(borderColor, lineWidth: 2.4 * scale))
@@ -492,17 +479,17 @@ private struct StrokeNumberBadge: View {
 
   private var background: Color {
     if isCurrent {
-      return KakiRenshuStyle.yellow
+      return DesignColor.yellow
     }
     if isWritten {
-      return KakiRenshuStyle.pastNumber
+      return KakiRenshuColor.writtenNumber
     }
 
     return .white
   }
 
   private var borderColor: Color {
-    isWritten ? KakiRenshuStyle.sand : KakiRenshuStyle.ink
+    isWritten ? KakiRenshuColor.writtenNumberBorder : DesignColor.ink
   }
 
   /// 画の書き出しから、進行方向と逆に 10 ずらした位置。線と番号が重ならないようにする。
@@ -541,7 +528,7 @@ private struct StrokeDirectionArrow: View {
       let arrow = Self.arrowPath(at: position, angle: angle, scale: scale)
 
       ZStack(alignment: .topLeading) {
-        ScaledPath(content: arrow).fill(KakiRenshuStyle.red)
+        ScaledPath(content: arrow).fill(DesignColor.red)
         ScaledPath(content: arrow).stroke(.white, lineWidth: 1.2 * scale)
       }
       .opacity(isMoving ? 1 : 0)
@@ -565,16 +552,17 @@ private struct StrokeDirectionArrow: View {
 /// 名前を全部書けた時のゲット演出。ずかんへの登録を子どもに分かる形で見せる。
 private struct CaughtCelebrationView: View {
   let pokemon: Pokemon
+  let imageCache: PokemonImageCache?
   let onNext: () -> Void
 
   @State private var isShining = false
 
   var body: some View {
     ZStack {
-      KakiRenshuStyle.ink.opacity(0.55).ignoresSafeArea()
+      DesignColor.ink.opacity(0.55).ignoresSafeArea()
 
       RaysShape()
-        .fill(KakiRenshuStyle.yellow.opacity(0.8))
+        .fill(DesignColor.yellow.opacity(0.8))
         .rotationEffect(.degrees(isShining ? 360 : 0))
         .animation(.linear(duration: 24).repeatForever(autoreverses: false), value: isShining)
         .ignoresSafeArea()
@@ -583,9 +571,9 @@ private struct CaughtCelebrationView: View {
         Text("ゲット！")
           .font(.system(size: 56, weight: .black, design: .rounded))
           .foregroundStyle(.white)
-          .shadow(color: KakiRenshuStyle.ink, radius: 0, x: 4, y: 4)
+          .shadow(color: DesignColor.ink, radius: 0, x: 4, y: 4)
 
-        PokemonSpriteImage(pokemon: pokemon)
+        PokemonSpriteView(pokemon: pokemon, isCaught: true, imageCache: imageCache)
           .frame(width: 180, height: 180)
 
         VStack(spacing: 6) {
@@ -596,14 +584,14 @@ private struct CaughtCelebrationView: View {
           Text("ずかん に とうろく したよ")
             .font(.system(size: 17, weight: .heavy, design: .rounded))
         }
-        .foregroundStyle(KakiRenshuStyle.ink)
+        .foregroundStyle(DesignColor.ink)
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
-        .background(KakiRenshuStyle.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
           RoundedRectangle(cornerRadius: 26, style: .continuous)
-            .stroke(KakiRenshuStyle.ink, lineWidth: 6)
+            .stroke(DesignColor.ink, lineWidth: 6)
         )
 
         Button {
@@ -614,7 +602,7 @@ private struct CaughtCelebrationView: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 84)
             .background(
-              KakiRenshuStyle.red,
+              DesignColor.red,
               in: RoundedRectangle(cornerRadius: 26, style: .continuous)
             )
         }

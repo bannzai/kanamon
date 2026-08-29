@@ -39,7 +39,7 @@ struct HomeMenuItem: Identifiable {
   static let all: [HomeMenuItem] = AppDestination.allCases.map(HomeMenuItem.init(destination:))
 }
 
-/// ホーム画面。ずかん・よみれんしゅう・クイズへの導線を大きなボタンで並べる。
+/// ホーム画面。ずかん・よみれんしゅう・かきれんしゅう・クイズへの導線を大きなボタンで並べる。
 ///
 /// 子どもが 1 人で迷わないよう、階層はホームと各画面の 2 段だけにする。
 struct HomeView: View {
@@ -59,9 +59,13 @@ struct HomeView: View {
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
         switch destination {
+        case .zukan:
+          PokedexView()
         case .kakiRenshu:
           KakiRenshuView()
-        case .zukan, .yomiRenshu, .quiz:
+        case .quiz:
+          QuizView()
+        case .yomiRenshu:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
