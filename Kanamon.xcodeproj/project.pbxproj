@@ -26,6 +26,11 @@
 		300000000000000000000004 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000004 /* QuizView.swift */; };
 		300000000000000000000005 /* SpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000005 /* SpeechSynthesizer.swift */; };
 		300000000000000000000006 /* QuizTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400000000000000000000006 /* QuizTests.swift */; };
+		600000000000000000000001 /* KanjiVGStroke.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500000000000000000000001 /* KanjiVGStroke.swift */; };
+		600000000000000000000002 /* StrokeTraceJudge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500000000000000000000002 /* StrokeTraceJudge.swift */; };
+		600000000000000000000003 /* KakiRenshuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500000000000000000000003 /* KakiRenshuModel.swift */; };
+		600000000000000000000004 /* KakiRenshuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500000000000000000000004 /* KakiRenshuView.swift */; };
+		600000000000000000000005 /* KakiRenshuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500000000000000000000005 /* KakiRenshuTests.swift */; };
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
@@ -71,6 +76,11 @@
 		400000000000000000000004 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
 		400000000000000000000005 /* SpeechSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizer.swift; sourceTree = "<group>"; };
 		400000000000000000000006 /* QuizTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizTests.swift; sourceTree = "<group>"; };
+		500000000000000000000001 /* KanjiVGStroke.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiVGStroke.swift; sourceTree = "<group>"; };
+		500000000000000000000002 /* StrokeTraceJudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeTraceJudge.swift; sourceTree = "<group>"; };
+		500000000000000000000003 /* KakiRenshuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KakiRenshuModel.swift; sourceTree = "<group>"; };
+		500000000000000000000004 /* KakiRenshuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KakiRenshuView.swift; sourceTree = "<group>"; };
+		500000000000000000000005 /* KakiRenshuTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KakiRenshuTests.swift; sourceTree = "<group>"; };
 		29E985B158F0B7ADD8C5F040 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5D917AA35E42ED26847B6BB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
@@ -124,6 +134,10 @@
 				200000000000000000000002 /* PokeAPIClient.swift */,
 				200000000000000000000003 /* PokemonData.swift */,
 				200000000000000000000004 /* PokemonImageCache.swift */,
+				500000000000000000000001 /* KanjiVGStroke.swift */,
+				500000000000000000000002 /* StrokeTraceJudge.swift */,
+				500000000000000000000003 /* KakiRenshuModel.swift */,
+				500000000000000000000004 /* KakiRenshuView.swift */,
 				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
 				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
 				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
@@ -148,6 +162,7 @@
 				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
 				A17D3C0E5B24F1908E3A1109 /* YomiRenshuTests.swift */,
 				5A9E2B613D07C4F28E15A0B4 /* SpeechSynthesizingTests.swift */,
+				500000000000000000000005 /* KakiRenshuTests.swift */,
 				400000000000000000000006 /* QuizTests.swift */,
 			);
 			path = KanamonTests;
@@ -250,6 +265,7 @@
 				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2209 /* YomiRenshuTests.swift in Sources */,
 				3F1C7A0D2E64B58A91D40C77 /* SpeechSynthesizingTests.swift in Sources */,
+				600000000000000000000005 /* KakiRenshuTests.swift in Sources */,
 				100000000000000000000014 /* PokedexTests.swift in Sources */,
 				300000000000000000000006 /* QuizTests.swift in Sources */,
 			);
@@ -267,6 +283,10 @@
 				100000000000000000000002 /* PokeAPIClient.swift in Sources */,
 				100000000000000000000003 /* PokemonData.swift in Sources */,
 				100000000000000000000004 /* PokemonImageCache.swift in Sources */,
+				600000000000000000000001 /* KanjiVGStroke.swift in Sources */,
+				600000000000000000000002 /* StrokeTraceJudge.swift in Sources */,
+				600000000000000000000003 /* KakiRenshuModel.swift in Sources */,
+				600000000000000000000004 /* KakiRenshuView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
 				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
