@@ -19,18 +19,15 @@ enum YomiRenshuText {
   static let all: [String] = [title, playAll, stopPlaying, loading, failed, retry, swipeHint]
 }
 
-/// よみれんしゅう画面の配色 (documents/design/README.md「6. スタイルトークン」)。
+/// よみれんしゅう画面だけで使う色。共通の色は `DesignColor` から参照する。
 private enum YomiRenshuPalette {
-  /// #33241A
-  static let ink = Color(red: 0.200, green: 0.141, blue: 0.102)
-  /// #EAF6FF
-  static let background = Color(red: 0.918, green: 0.965, blue: 1.000)
-  /// #FFC22E
-  static let highlight = Color(red: 1.000, green: 0.761, blue: 0.180)
-  /// #D93B2B
-  static let red = Color(red: 0.851, green: 0.231, blue: 0.169)
-  /// #1F7FC4
-  static let hiragana = Color(red: 0.122, green: 0.498, blue: 0.769)
+  static let ink = DesignColor.ink
+  /// #EAF6FF (README「6. スタイルトークン」の よみ 画面の地の色)
+  static let background = Color(hex: 0xEAF6FF)
+  static let highlight = DesignColor.yellow
+  static let red = DesignColor.red
+  /// #1F7FC4 (プロトタイプの --blue-dk。ひらがなの併記に使う)
+  static let hiragana = Color(hex: 0x1F7FC4)
 }
 
 /// ポケモンの名前を 1 文字ずつ読み上げて、カタカナの読みを練習する画面。
