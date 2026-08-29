@@ -49,3 +49,24 @@ enum KatakanaCharacterNormalizer {
     }
   }
 }
+
+/// 進捗の分母に使う五十音 46 文字。
+///
+/// 濁点・半濁点・小書き文字は `KatakanaCharacterNormalizer` で基底文字へ寄せてから数えるため、
+/// ここには清音の 46 文字だけを持つ (documents/design/README.md「3. もじ ずかん」)。
+enum KatakanaGojuon {
+  static let characters: [Character] = [
+    "ア", "イ", "ウ", "エ", "オ",
+    "カ", "キ", "ク", "ケ", "コ",
+    "サ", "シ", "ス", "セ", "ソ",
+    "タ", "チ", "ツ", "テ", "ト",
+    "ナ", "ニ", "ヌ", "ネ", "ノ",
+    "ハ", "ヒ", "フ", "ヘ", "ホ",
+    "マ", "ミ", "ム", "メ", "モ",
+    "ヤ", "ユ", "ヨ",
+    "ラ", "リ", "ル", "レ", "ロ",
+    "ワ", "ヲ", "ン",
+  ]
+
+  static let characterSet = Set(characters)
+}

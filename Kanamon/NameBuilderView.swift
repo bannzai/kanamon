@@ -2,7 +2,7 @@ import SwiftUI
 
 /// なまえ づくり画面に出す文言。子どもが読めるようにひらがな・カタカナ・数字だけで書く。
 enum NameBuilderText {
-  static let title = "なまえづくり"
+  static let title = "なまえ づくり"
   static let prompt = "もじ を えらんで なまえ に しよう"
   static let undo = "1つ もどす"
   static let speak = "よんで もらう"
@@ -43,15 +43,16 @@ struct NameBuilderView: View {
 
   var body: some View {
     ZStack {
-      NameBuilderColor.background.ignoresSafeArea()
       if let model {
         NameBuilderContentView(model: model)
       } else {
         NameBuilderStatusView(text: NameBuilderText.loading) { ProgressView() }
       }
     }
-    .navigationTitle(NameBuilderText.title)
-    .navigationBarTitleDisplayMode(.inline)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // NavigationStack は自前の地の色 (白) を敷くため、画面ごとに地の色を塗り直す
+    .background(NameBuilderColor.background)
+    .toolbar(.hidden, for: .navigationBar)
     .task {
       guard model == nil else {
         return
@@ -67,6 +68,7 @@ struct NameBuilderView: View {
 private struct NameBuilderContentView: View {
   let model: NameBuilderModel
 
+  @Environment(\.dismiss) private var dismiss
   /// 正解した時に先頭から緑へ光らせたマスの数。
   @State private var litSlotCount = 0
   /// 間違えた時にマスを揺らすための回数。増やすたびに 1 往復ぶん揺れる。
@@ -102,8 +104,6 @@ private struct NameBuilderContentView: View {
         }
       }
     }
-    // ゲット演出の間は戻るボタンを押せないように、ナビゲーションバーごと隠す。
-    .toolbar(overlay ? .hidden : .visible, for: .navigationBar)
     .onDisappear {
       judgementTask?.cancel()
       judgementTask = nil
@@ -124,6 +124,18 @@ private struct NameBuilderContentView: View {
 
   private func boardContent(pokemon: Pokemon, game: NameBuilderGame) -> some View {
     VStack(spacing: 12) {
+      HStack(spacing: 12) {
+        PokedexBackButton { dismiss() }
+
+        Text(NameBuilderText.title)
+          .font(.system(size: 30, weight: .black, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .frame(height: 64)
+
       QuizSpriteImage(pokemon: pokemon, imageCache: model.imageCache, size: 178)
         .frame(maxWidth: .infinity, minHeight: 196)
         .background(DesignColor.paper, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -186,7 +198,6 @@ private struct NameBuilderContentView: View {
       }
     }
     .padding(16)
-    .frame(maxWidth: 520)
     .frame(maxWidth: .infinity)
   }
 
@@ -365,13 +376,10 @@ private struct NameBuilderActionButton: View {
       .foregroundStyle(foreground)
       .padding(.horizontal, 14)
       .frame(maxWidth: .infinity, minHeight: 84)
-      .background(tint, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-      .overlay {
-        RoundedRectangle(cornerRadius: 30, style: .continuous)
-          .strokeBorder(DesignColor.ink, lineWidth: 5)
-      }
     }
-    .buttonStyle(.plain)
+    .buttonStyle(
+      PokedexCardButtonStyle(background: tint, cornerRadius: 30, borderWidth: 5, shadowHeight: 7)
+    )
   }
 }
 
@@ -427,18 +435,19 @@ private struct NameBuilderGetOverlay: View {
             .font(.system(size: 34, weight: .heavy, design: .rounded))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 96)
-            .background(DesignColor.green, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-            .overlay {
-              RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .strokeBorder(DesignColor.ink, lineWidth: 5)
-            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(
+          PokedexCardButtonStyle(
+            background: DesignColor.green,
+            cornerRadius: 30,
+            borderWidth: 5,
+            shadowHeight: 7
+          )
+        )
         .accessibilityIdentifier("name_builder_next_button")
       }
       .padding(.horizontal, 24)
       .padding(.vertical, 28)
-      .frame(maxWidth: 520)
       .frame(maxWidth: .infinity)
     }
     .accessibilityElement(children: .contain)
@@ -527,8 +536,10 @@ private struct ShakeEffect: GeometryEffect {
 }
 
 #Preview {
-  NavigationStack {
-    NameBuilderView()
+  PokedexDeviceFrame {
+    NavigationStack {
+      NameBuilderView()
+    }
   }
   .modelContainer(PersistenceController(isStoredInMemoryOnly: true).container)
 }
