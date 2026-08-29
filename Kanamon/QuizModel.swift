@@ -133,15 +133,22 @@ final class QuizModel {
     answered = true
     wrongChoiceID = nil
 
-    let isNewCatch = !caughtPokemonIDs.contains(pokemon.id)
-    // 保存に失敗しても出題は続けられるため、クイズを止めずに進める。
-    try? learningProgressStore.markPokemonCaught(id: pokemon.id)
+    let notCaughtYet = !caughtPokemonIDs.contains(pokemon.id)
+    // 保存に失敗しても出題は続けられるためクイズは止めないが、保存できていないものを
+    // ゲット済みとして扱わない (再起動で消える進捗を「とうろく したよ」と見せない)。
+    var saved = false
+    do {
+      try learningProgressStore.markPokemonCaught(id: pokemon.id)
+      saved = true
+      caughtPokemonIDs.insert(pokemon.id)
+    } catch {
+      saved = false
+    }
     for character in Gojuon.readableCharacters(in: pokemon.japaneseName) {
       try? learningProgressStore.markRead(character: character)
     }
-    caughtPokemonIDs.insert(pokemon.id)
 
-    result = QuizResult(pokemon: pokemon, isNewCatch: isNewCatch)
+    result = QuizResult(pokemon: pokemon, isNewCatch: notCaughtYet && saved)
   }
 
   private func makeQuestion() -> QuizQuestion? {

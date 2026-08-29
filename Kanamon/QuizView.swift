@@ -78,7 +78,7 @@ struct QuizView: View {
       if let model {
         QuizContentView(model: model)
       } else {
-        QuizStatusView(text: QuizText.loading) { ProgressView() }
+        QuizStatusView<ProgressView, EmptyView>(text: QuizText.loading) { ProgressView() }
       }
     }
     .toolbar(.hidden, for: .navigationBar)
@@ -108,6 +108,8 @@ private struct QuizContentView: View {
   @State private var correctChoiceID: String?
   @State private var correctScale: CGFloat = 1
   @State private var overlay = false
+  /// 正解から演出までの待ち時間を担う Task。次の問題へ進む・画面を閉じる時に取り消して、古い解答の演出を出さない。
+  @State private var revealTask: Task<Void, Never>?
 
   private static let columns = [
     GridItem(.flexible(), spacing: 14),
@@ -118,9 +120,9 @@ private struct QuizContentView: View {
     ZStack {
       switch model.state {
       case .loading:
-        QuizStatusView(text: QuizText.loading) { ProgressView() }
+        QuizStatusView(text: QuizText.loading, backButton: backButton) { ProgressView() }
       case .failed:
-        QuizStatusView(text: QuizText.failed) {
+        QuizStatusView(text: QuizText.failed, backButton: backButton) {
           Button {
             Task { await model.retryLoad() }
           } label: {
@@ -144,16 +146,21 @@ private struct QuizContentView: View {
     }
     .task { await model.load() }
     .onChange(of: model.result) { _, result in
+      revealTask?.cancel()
       guard let result else {
         overlay = false
         return
       }
-      Task {
+      revealTask = Task {
         try? await Task.sleep(for: .milliseconds(600))
+        guard !Task.isCancelled, model.result == result else {
+          return
+        }
         SpeechSynthesizer.shared.speak(result.pokemon.japaneseName)
         withAnimation(.easeOut(duration: 0.28)) { overlay = true }
       }
     }
+    .onDisappear { revealTask?.cancel() }
   }
 
   @ViewBuilder
@@ -179,7 +186,10 @@ private struct QuizContentView: View {
       .gesture(
         DragGesture(minimumDistance: 20)
           .onEnded { value in
-            guard abs(value.translation.width) >= 60 else {
+            let horizontal = abs(value.translation.width)
+            let vertical = abs(value.translation.height)
+            // 選択肢まで縦スクロールする指の動きを誤ってページ送りにしないよう、横が縦の 2 倍以上の時だけ送る。
+            guard horizontal >= 60, horizontal >= vertical * 2 else {
               return
             }
             advance()
@@ -188,20 +198,25 @@ private struct QuizContentView: View {
     }
   }
 
+  /// ホームへ戻るボタン。ナビゲーションバーを隠しているため、読み込み中・失敗時にも必ず出す。
+  private var backButton: some View {
+    Button {
+      dismiss()
+    } label: {
+      Image(systemName: "chevron.left")
+        .font(.system(size: 22, weight: .heavy))
+        .foregroundStyle(QuizColor.ink)
+        .frame(width: 50, height: 50)
+        .background(QuizColor.cream, in: Circle())
+        .overlay(Circle().strokeBorder(QuizColor.ink, lineWidth: 4))
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("quiz_back_button")
+  }
+
   private func header(question: QuizQuestion) -> some View {
     HStack(spacing: 10) {
-      Button {
-        dismiss()
-      } label: {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 22, weight: .heavy))
-          .foregroundStyle(QuizColor.ink)
-          .frame(width: 50, height: 50)
-          .background(QuizColor.cream, in: Circle())
-          .overlay(Circle().strokeBorder(QuizColor.ink, lineWidth: 4))
-      }
-      .buttonStyle(.plain)
-      .accessibilityIdentifier("quiz_back_button")
+      backButton
 
       Text(QuizText.title)
         .font(.system(size: 30, weight: .heavy, design: .rounded))
@@ -446,6 +461,7 @@ private struct QuizContentView: View {
   }
 
   private func advance() {
+    revealTask?.cancel()
     overlay = false
     wrongChoiceID = nil
     wrongOffset = 0
@@ -455,10 +471,17 @@ private struct QuizContentView: View {
   }
 }
 
-/// 読み込み中・読み込み失敗を伝える画面。
-private struct QuizStatusView<Accessory: View>: View {
+/// 読み込み中・読み込み失敗を伝える画面。戻るボタンを渡すと左上に置く。
+private struct QuizStatusView<Accessory: View, BackButton: View>: View {
   let text: String
+  let backButton: BackButton?
   @ViewBuilder let accessory: () -> Accessory
+
+  init(text: String, backButton: BackButton? = nil, @ViewBuilder accessory: @escaping () -> Accessory) {
+    self.text = text
+    self.backButton = backButton
+    self.accessory = accessory
+  }
 
   var body: some View {
     VStack(spacing: 20) {
@@ -468,6 +491,13 @@ private struct QuizStatusView<Accessory: View>: View {
         .foregroundStyle(QuizColor.ink)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .topLeading) {
+      if let backButton {
+        backButton
+          .padding(.horizontal, 20)
+          .padding(.vertical, 12)
+      }
+    }
   }
 }
 
@@ -533,6 +563,9 @@ struct QuizSpriteImage: View {
       }
     }
     .frame(width: size, height: size)
+    .onChange(of: pokemon.id) {
+      attempt = 0
+    }
     .task(id: "\(pokemon.id)-\(attempt)") {
       await load()
     }
@@ -788,6 +821,6 @@ extension View {
 #Preview("よみこみちゅう") {
   ZStack {
     QuizColor.background.ignoresSafeArea()
-    QuizStatusView(text: QuizText.loading) { ProgressView() }
+    QuizStatusView<ProgressView, EmptyView>(text: QuizText.loading) { ProgressView() }
   }
 }

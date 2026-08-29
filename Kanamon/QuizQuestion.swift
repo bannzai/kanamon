@@ -77,9 +77,14 @@ struct QuizQuestionGenerator {
     self.generator = AnyRandomNumberGenerator(generator)
   }
 
-  /// ダミーを 3 匹そろえられない (4 匹未満) 場合と、名前が空で穴を空けられない場合は nil を返す。
+  /// ダミーを 3 匹そろえられない (4 匹未満) 場合と、あなぬけで穴にできるかな文字を持つポケモンがいない場合は nil を返す。
   mutating func makeQuestion(mode: QuizMode) -> QuizQuestion? {
-    guard pokemons.count >= 4, let answer = pickAnswer() else {
+    let candidates =
+      switch mode {
+      case .nameChoice, .imageChoice: pokemons
+      case .fillInBlank: pokemons.filter { $0.japaneseName.contains(where: Self.isBlankable) }
+      }
+    guard pokemons.count >= 4, let answer = pickAnswer(from: candidates) else {
       return nil
     }
 
@@ -106,9 +111,15 @@ struct QuizQuestionGenerator {
     }
   }
 
-  private mutating func pickAnswer() -> Pokemon? {
-    let notCaught = pokemons.filter { !caughtPokemonIDs.contains($0.id) }
-    let caught = pokemons.filter { caughtPokemonIDs.contains($0.id) }
+  /// 穴にできる文字か。読みとして扱えるカタカナ (U+30A1〜U+30FA) だけを対象にし、
+  /// 長音符「ー」や「ニドラン♀」「ニドラン♂」の記号は除外する。
+  static func isBlankable(_ character: Character) -> Bool {
+    character.unicodeScalars.allSatisfy { (0x30A1...0x30FA).contains($0.value) }
+  }
+
+  private mutating func pickAnswer(from candidates: [Pokemon]) -> Pokemon? {
+    let notCaught = candidates.filter { !caughtPokemonIDs.contains($0.id) }
+    let caught = candidates.filter { caughtPokemonIDs.contains($0.id) }
 
     if notCaught.isEmpty {
       return caught.randomElement(using: &generator)
@@ -136,7 +147,9 @@ struct QuizQuestionGenerator {
       return nil
     }
 
-    let index = characters.indices.filter { characters[$0] != "ー" }.randomElement(using: &generator) ?? 0
+    guard let index = characters.indices.filter({ Self.isBlankable(characters[$0]) }).randomElement(using: &generator) else {
+      return nil
+    }
     let correct = characters[index]
     let dummies = Gojuon.characters
       .filter { $0 != correct }

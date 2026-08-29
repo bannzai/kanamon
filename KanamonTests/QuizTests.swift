@@ -75,6 +75,37 @@ final class QuizTests: XCTestCase {
     }
   }
 
+  func testFillInBlankNeverHidesSymbolsOrLongVowel() throws {
+    let pokemons = (1...4).map { id in
+      Pokemon(id: id, japaneseName: "テスト♀ー", spriteURL: URL(string: "https://example.com/\(id).png")!)
+    }
+    var questionGenerator = QuizQuestionGenerator(
+      pokemons: pokemons,
+      caughtPokemonIDs: [],
+      generator: SeededGenerator(seed: 7)
+    )
+
+    for _ in 0..<50 {
+      let question = try XCTUnwrap(questionGenerator.makeQuestion(mode: .fillInBlank))
+      let hidden = Array(question.answer.japaneseName)[try XCTUnwrap(question.blankIndex)]
+      XCTAssertTrue(["テ", "ス", "ト"].contains(hidden), "\(hidden) は穴にできない文字です")
+    }
+  }
+
+  func testFillInBlankReturnsNilWhenNoPokemonHasKana() {
+    let pokemons = (1...4).map { id in
+      Pokemon(id: id, japaneseName: "♀♂ー", spriteURL: URL(string: "https://example.com/\(id).png")!)
+    }
+    var questionGenerator = QuizQuestionGenerator(
+      pokemons: pokemons,
+      caughtPokemonIDs: [],
+      generator: SeededGenerator(seed: 7)
+    )
+
+    XCTAssertNil(questionGenerator.makeQuestion(mode: .fillInBlank))
+    XCTAssertNotNil(questionGenerator.makeQuestion(mode: .nameChoice))
+  }
+
   func testAnswerPrefersNotCaughtPokemonButAlsoReviewsCaughtOnes() {
     let pokemons = (1...10).map(makePokemon(id:))
     let caughtPokemonIDs: Set<Int> = [1, 2, 3, 4, 5]
