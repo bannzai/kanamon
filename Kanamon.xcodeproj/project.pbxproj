@@ -11,6 +11,10 @@
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
+		B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */; };
+		B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1102 /* HomeView.swift */; };
+		B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */; };
+		B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,6 +34,10 @@
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
 		ADC71EE683A45CE6284A18F8 /* Kanamon.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Kanamon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D58492E064E64E689038BCB2 /* KanamonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonTests.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDestination.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1102 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderView.swift; sourceTree = "<group>"; };
+		A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -57,6 +65,9 @@
 				5D917AA35E42ED26847B6BB0 /* Assets.xcassets */,
 				29E985B158F0B7ADD8C5F040 /* ContentView.swift */,
 				68710977607E0CDF1AED0580 /* KanamonApp.swift */,
+				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
+				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
+				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
 			);
 			path = Kanamon;
 			sourceTree = "<group>";
@@ -65,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				D58492E064E64E689038BCB2 /* KanamonTests.swift */,
+				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
 			);
 			path = KanamonTests;
 			sourceTree = "<group>";
@@ -162,6 +174,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */,
+				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -171,6 +184,9 @@
 			files = (
 				00570055A10FCBD8D16BDD33 /* ContentView.swift in Sources */,
 				9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */,
+				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
+				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
+				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
