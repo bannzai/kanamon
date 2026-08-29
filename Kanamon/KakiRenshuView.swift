@@ -14,11 +14,33 @@ enum KakiRenshuColor {
   static let writtenNumberBorder = Color(hex: 0xBCAC90)
 }
 
+/// かきれんしゅう画面に出す固定の文言。子どもが読めるようにひらがな・カタカナだけで書く。
+enum KakiRenshuText {
+  static let title = "かきれんしゅう"
+  static let playStrokeOrder = "かきじゅん を みる"
+  static let speak = "よんで もらう"
+  static let otherPokemon = "ほかの モンスター の なまえ"
+  static let previousPokemon = "まえ の モンスター"
+  static let nextPokemon = "つぎ の モンスター"
+  static let next = "つぎ へ"
+  static let caught = "ゲット！"
+  static let written = "かけたね！"
+  static let registered = "ずかん に とうろく したよ"
+  static let notRegistered = "とうろく できなかったよ"
+
+  /// 画面に出すすべての文言。かなだけで書けているかをテストで検証するために並べる。
+  static let all: [String] = [
+    title, playStrokeOrder, speak, otherPokemon, previousPokemon, nextPokemon,
+    next, caught, written, registered, notRegistered,
+  ]
+}
+
 /// かきれんしゅう画面。名前の文字を 1 文字ずつ、書き順の番号と進行方向の矢印に沿ってなぞる。
 ///
 /// 失敗しても書いた画を消さず、回数制限も減点も設けない (`documents/design/README.md`「4. かきれんしゅう」)。
 struct KakiRenshuView: View {
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
   @State private var model = KakiRenshuModel()
   /// なぞっている最中の軌跡 (109 座標系)。
   @State private var tracePoints: [CGPoint] = []
@@ -30,8 +52,14 @@ struct KakiRenshuView: View {
 
   var body: some View {
     ZStack {
-      KakiRenshuColor.background.ignoresSafeArea()
-      content
+      VStack(spacing: 11) {
+        header
+        content
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+
       if let result = model.result {
         CaughtCelebrationView(result: result, imageCache: model.imageCache) {
           stopDemo()
@@ -40,14 +68,34 @@ struct KakiRenshuView: View {
         .transition(.opacity)
       }
     }
-    .navigationTitle("かきれんしゅう")
-    .navigationBarTitleDisplayMode(.inline)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // NavigationStack は自前の地の色 (白) を敷くため、画面ごとに塗り直す。
+    // かき画面の地の色はデザイン仕様 (documents/design/README.md「6. スタイルトークン」) の #EAFBEE
+    .background(KakiRenshuColor.background)
+    .toolbar(.hidden, for: .navigationBar)
     .task {
       await model.load(modelContext: modelContext)
     }
     .onDisappear {
       stopDemo()
     }
+  }
+
+  private var header: some View {
+    HStack(spacing: 12) {
+      PokedexBackButton {
+        stopDemo()
+        dismiss()
+      }
+
+      Text(KakiRenshuText.title)
+        .font(.system(size: 30, weight: .black, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .frame(height: 64)
   }
 
   @ViewBuilder
@@ -59,7 +107,9 @@ struct KakiRenshuView: View {
           .controlSize(.large)
         Text(KakiRenshuMessage.loading)
           .font(.system(size: 22, weight: .bold, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     case .failure:
       VStack(spacing: 24) {
         Text(model.message)
@@ -72,17 +122,14 @@ struct KakiRenshuView: View {
           }
         } label: {
           Text(KakiRenshuMessage.retry)
-            .font(.system(size: 30, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(
-              DesignColor.blue,
-              in: RoundedRectangle(cornerRadius: 26, style: .continuous)
-            )
+            .font(.system(size: 30, weight: .black, design: .rounded))
+            .foregroundStyle(DesignColor.paper)
+            .frame(maxWidth: .infinity, minHeight: 76)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(Self.primaryButtonStyle(background: DesignColor.blue))
       }
       .padding(24)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     case .tracing:
       tracingContent
     }
@@ -103,8 +150,6 @@ struct KakiRenshuView: View {
       pokemonSwitcher
       attribution
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
   }
 
   private var nameRow: some View {
@@ -126,7 +171,17 @@ struct KakiRenshuView: View {
                 isWritten: model.isWritten(character)
               )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(
+              PokedexCardButtonStyle(
+                background: NameCharacterLabel.background(
+                  isCurrent: index == model.characterIndex,
+                  isWritten: model.isWritten(character)
+                ),
+                cornerRadius: 12,
+                borderWidth: 4,
+                shadowHeight: 4
+              )
+            )
           }
         }
       }
@@ -135,10 +190,11 @@ struct KakiRenshuView: View {
         .foregroundStyle(DesignColor.ink)
     }
     .padding(10)
-    .background(DesignColor.cream, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    .background(DesignColor.cream)
+    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 20, style: .continuous)
-        .stroke(DesignColor.ink, lineWidth: 5)
+        .strokeBorder(DesignColor.ink, lineWidth: 5)
     )
   }
 
@@ -183,32 +239,24 @@ struct KakiRenshuView: View {
       Button {
         playDemo()
       } label: {
-        Text("かきじゅん を みる")
-          .font(.system(size: 23, weight: .heavy, design: .rounded))
-          .foregroundStyle(.white)
-          .frame(maxWidth: .infinity, minHeight: 84)
-          .background(
-            DesignColor.blue,
-            in: RoundedRectangle(cornerRadius: 26, style: .continuous)
-          )
+        Text(KakiRenshuText.playStrokeOrder)
+          .font(.system(size: 23, weight: .black, design: .rounded))
+          .foregroundStyle(DesignColor.paper)
+          .frame(maxWidth: .infinity, minHeight: 76)
       }
-      .buttonStyle(.plain)
+      .buttonStyle(Self.primaryButtonStyle(background: DesignColor.blue))
       .disabled(model.strokes.isEmpty)
 
       Button {
         model.speakCurrentCharacter()
       } label: {
         Image(systemName: "speaker.wave.3.fill")
-          .font(.system(size: 32, weight: .bold))
+          .font(.system(size: 30, weight: .bold))
           .foregroundStyle(DesignColor.ink)
-          .frame(width: 84, height: 84)
-          .background(
-            DesignColor.yellow,
-            in: RoundedRectangle(cornerRadius: 26, style: .continuous)
-          )
+          .frame(width: 76, height: 76)
       }
-      .buttonStyle(.plain)
-      .accessibilityLabel("よんで もらう")
+      .buttonStyle(Self.primaryButtonStyle(background: DesignColor.yellow))
+      .accessibilityLabel(KakiRenshuText.speak)
     }
   }
 
@@ -221,15 +269,15 @@ struct KakiRenshuView: View {
         Image(systemName: "chevron.left")
           .font(.system(size: 24, weight: .black))
           .foregroundStyle(DesignColor.ink)
-          .frame(width: 60, height: 60)
+          .frame(width: 56, height: 56)
       }
-      .buttonStyle(.plain)
-      .accessibilityLabel("まえ の モンスター")
+      .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
+      .accessibilityLabel(KakiRenshuText.previousPokemon)
 
       Spacer()
-      Text("ほかの モンスター の なまえ")
+      Text(KakiRenshuText.otherPokemon)
         .font(.system(size: 14, weight: .heavy, design: .rounded))
-        .foregroundStyle(DesignColor.ink.opacity(0.65))
+        .foregroundStyle(DesignColor.sandDark)
       Spacer()
 
       Button {
@@ -239,10 +287,10 @@ struct KakiRenshuView: View {
         Image(systemName: "chevron.right")
           .font(.system(size: 24, weight: .black))
           .foregroundStyle(DesignColor.ink)
-          .frame(width: 60, height: 60)
+          .frame(width: 56, height: 56)
       }
-      .buttonStyle(.plain)
-      .accessibilityLabel("つぎ の モンスター")
+      .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
+      .accessibilityLabel(KakiRenshuText.nextPokemon)
     }
   }
 
@@ -256,6 +304,11 @@ struct KakiRenshuView: View {
     .font(.system(size: 10, weight: .medium))
     .foregroundStyle(DesignColor.sandDark)
     .multilineTextAlignment(.center)
+  }
+
+  /// 確定デザインの大きいボタン (押下で 5pt 沈んで影が消える)。
+  private static func primaryButtonStyle(background: Color) -> PokedexCardButtonStyle {
+    PokedexCardButtonStyle(background: background, cornerRadius: 26, borderWidth: 5, shadowHeight: 7)
   }
 
   /// お手本の再生を止めて、なぞりを受け付けられる状態へ戻す。
@@ -312,17 +365,13 @@ private struct NameCharacterLabel: View {
 
   var body: some View {
     Text(String(character))
-      .font(.system(size: 26, weight: .heavy, design: .rounded))
-      .foregroundStyle(isCurrent ? DesignColor.ink : (isWritten ? .white : DesignColor.ink))
+      .font(.system(size: 26, weight: .black, design: .rounded))
+      .foregroundStyle(isWritten && !isCurrent ? DesignColor.paper : DesignColor.ink)
       .frame(minWidth: 40, minHeight: 46)
-      .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .stroke(DesignColor.ink, lineWidth: 4)
-      )
   }
 
-  private var background: Color {
+  /// タイルの地の色。今なぞっている文字は黄色、書けた文字は緑にする。
+  static func background(isCurrent: Bool, isWritten: Bool) -> Color {
     if isCurrent {
       return DesignColor.yellow
     }
@@ -600,7 +649,7 @@ private struct CaughtCelebrationView: View {
         .ignoresSafeArea()
 
       VStack(spacing: 16) {
-        Text(result.isRegistered ? "ゲット！" : "かけたね！")
+        Text(result.isRegistered ? KakiRenshuText.caught : KakiRenshuText.written)
           .font(.system(size: 56, weight: .black, design: .rounded))
           .foregroundStyle(.white)
           .shadow(color: DesignColor.ink, radius: 0, x: 4, y: 4)
@@ -613,7 +662,7 @@ private struct CaughtCelebrationView: View {
             .font(.system(size: 40, weight: .black, design: .rounded))
             .minimumScaleFactor(0.5)
             .lineLimit(1)
-          Text(result.isRegistered ? "ずかん に とうろく したよ" : "とうろく できなかったよ")
+          Text(result.isRegistered ? KakiRenshuText.registered : KakiRenshuText.notRegistered)
             .font(.system(size: 17, weight: .heavy, design: .rounded))
         }
         .foregroundStyle(DesignColor.ink)
@@ -629,16 +678,19 @@ private struct CaughtCelebrationView: View {
         Button {
           onNext()
         } label: {
-          Text("つぎ へ")
-            .font(.system(size: 30, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(
-              DesignColor.red,
-              in: RoundedRectangle(cornerRadius: 26, style: .continuous)
-            )
+          Text(KakiRenshuText.next)
+            .font(.system(size: 30, weight: .black, design: .rounded))
+            .foregroundStyle(DesignColor.paper)
+            .frame(maxWidth: .infinity, minHeight: 76)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(
+          PokedexCardButtonStyle(
+            background: DesignColor.red,
+            cornerRadius: 26,
+            borderWidth: 5,
+            shadowHeight: 7
+          )
+        )
       }
       .padding(24)
     }
@@ -678,8 +730,10 @@ private struct RaysShape: Shape {
 }
 
 #Preview {
-  NavigationStack {
-    KakiRenshuView()
+  PokedexDeviceFrame {
+    NavigationStack {
+      KakiRenshuView()
+    }
   }
   .modelContainer(PersistenceController(isStoredInMemoryOnly: true).container)
 }

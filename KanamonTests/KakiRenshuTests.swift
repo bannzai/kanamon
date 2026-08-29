@@ -213,7 +213,14 @@ final class KakiRenshuTests: XCTestCase {
 
   func testKakiRenshuIsReachableFromHome() {
     XCTAssertTrue(AppDestination.allCases.contains(.kakiRenshu))
-    XCTAssertEqual(HomeMenuItem(destination: .kakiRenshu).title, "かきれんしゅう")
+    XCTAssertEqual(HomeMenuItem(destination: .kakiRenshu).title, KakiRenshuText.title)
+  }
+
+  /// 子どもが読めるように、画面に出す文言はひらがな・カタカナ (と数字・区切り) だけにする。
+  func testKakiRenshuTextsUseOnlyKana() {
+    for text in KakiRenshuText.all {
+      XCTAssertTrue(text.isKanaOnly, "\(text) にひらがな・カタカナ以外の文字が含まれている")
+    }
   }
 
   /// KanjiVG は CC BY-SA 3.0 のため、書き順データの帰属表示を画面に出す (issue #19 の決定)。
@@ -314,3 +321,19 @@ final class KakiRenshuTests: XCTestCase {
     </svg>
     """
 }
+
+extension String {
+  /// ひらがな・カタカナ (長音符を含む)・分かち書きの空白・算用数字と、
+  /// 子どもにも読める全角の ！ ？ だけで構成されているか (クイズ画面の判定と同じ範囲)。
+  fileprivate var isKanaOnly: Bool {
+    unicodeScalars.allSatisfy { scalar in
+      (0x3041...0x309F).contains(scalar.value)
+        || (0x30A0...0x30FF).contains(scalar.value)
+        || (0x0030...0x0039).contains(scalar.value)
+        || scalar.value == 0x0020
+        || scalar.value == 0xFF01
+        || scalar.value == 0xFF1F
+    }
+  }
+}
+

@@ -103,12 +103,12 @@ final class PokedexTests: XCTestCase {
   func testDisplayedTextsUseKanaOnly() {
     let texts = [
       PokedexText.title,
-      PokedexText.deviceTitle,
+      PokedexDeviceText.title,
       PokedexText.caughtCountLabel,
       PokedexText.loading,
       PokedexText.failed,
       PokedexText.retry,
-      PokedexText.back,
+      PokedexDeviceText.back,
       PokedexText.unknownName,
       PokedexText.lockedToast,
     ]
