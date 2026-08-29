@@ -100,6 +100,8 @@ private struct NameBuilderContentView: View {
         }
       }
     }
+    // ゲット演出の間は戻るボタンを押せないように、ナビゲーションバーごと隠す。
+    .toolbar(overlay ? .hidden : .visible, for: .navigationBar)
   }
 
   private func board(pokemon: Pokemon, game: NameBuilderGame) -> some View {
@@ -333,6 +335,7 @@ private struct NameBuilderActionButton: View {
           .lineLimit(1)
       }
       .foregroundStyle(foreground)
+      .padding(.horizontal, 14)
       .frame(maxWidth: .infinity, minHeight: 84)
       .background(tint, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
       .overlay {
