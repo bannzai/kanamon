@@ -1,7 +1,6 @@
 import Foundation
 import SwiftData
 import SwiftUI
-import UIKit
 
 /// よみれんしゅう画面に出す固定の文言。
 ///
@@ -41,6 +40,9 @@ struct YomiRenshuView: View {
   private static let swipeHorizontalDistance: CGFloat = 56
   /// 送りと判定する横移動と縦移動の比。斜めに滑った指を送りと誤認しないため縦より十分大きいことを求める。
   private static let swipeHorizontalToVerticalRatio: CGFloat = 1.6
+  /// 内容の最大幅 (documents/design/README.md「7. iPad での拡大方針」の 520pt)。
+  /// iPad では横に引き伸ばさず中央に寄せて、子どもが目で追える行長に収める。
+  private static let contentMaximumWidth: CGFloat = 520
 
   /// `modelContext` から model を組み立てる通常の入口。
   ///
@@ -60,6 +62,9 @@ struct YomiRenshuView: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .background(YomiRenshuPalette.background)
       .navigationBarTitleDisplayMode(.inline)
+      .onDisappear {
+        model?.stop()
+      }
       .task {
         let model =
           self.model
@@ -117,20 +122,28 @@ struct YomiRenshuView: View {
   }
 
   private func loaded(model: YomiRenshuModel) -> some View {
-    VStack(spacing: 16) {
-      header(pokemon: model.currentPokemon)
-      PokemonSpriteCard(pokemon: model.currentPokemon, imageCache: model.imageCache)
-      characterCards(model: model)
-      if let tipText = model.tipText {
-        tipNote(tipText: tipText)
+    GeometryReader { proxy in
+      ScrollView(.vertical) {
+        VStack(spacing: 16) {
+          header(pokemon: model.currentPokemon)
+          PokemonSpriteCard(pokemon: model.currentPokemon, imageCache: model.imageCache)
+          characterCards(model: model)
+          if let tipText = model.tipText {
+            tipNote(tipText: tipText)
+          }
+          Spacer(minLength: 0)
+          playButton(model: model)
+          footer(model: model)
+        }
+        .padding(20)
+        .frame(maxWidth: Self.contentMaximumWidth)
+        .frame(maxWidth: .infinity)
+        // 画面に収まる高さの時も Spacer が効いて下のボタンが画面の下端に寄るよう、画面の高さを下限にする
+        .frame(minHeight: proxy.size.height)
+        .contentShape(Rectangle())
+        .simultaneousGesture(swipe(model: model))
       }
-      Spacer(minLength: 0)
-      playButton(model: model)
-      footer(model: model)
     }
-    .padding(20)
-    .contentShape(Rectangle())
-    .simultaneousGesture(swipe(model: model))
   }
 
   /// 見出しと、右端の 3 桁の図鑑番号ピル。
@@ -153,7 +166,7 @@ struct YomiRenshuView: View {
   }
 
   private func characterCards(model: YomiRenshuModel) -> some View {
-    WrappingRows(spacing: 10) {
+    WrappingRows(spacing: 8) {
       ForEach(model.characters) { character in
         YomiRenshuCharacterCell(
           character: character,
@@ -285,6 +298,10 @@ private struct YomiRenshuCharacterCell: View {
   let isHighlighted: Bool
   let action: () -> Void
 
+  /// セルの幅。指で確実に押せるよう 60pt 以上にしつつ、iPhone の横幅 (390 − 左右の余白 40 = 350) に
+  /// `WrappingRows` の間隔 8pt を挟んで 5 文字 (60 × 5 + 8 × 4 = 332) が 1 行で並ぶ大きさにする。
+  private static let width: CGFloat = 60
+
   /// にている もじ は枠と影を赤にして、注意して見る文字だと分かるようにする。
   private var borderColor: Color {
     character.isSimilar ? YomiRenshuPalette.red : YomiRenshuPalette.ink
@@ -302,7 +319,8 @@ private struct YomiRenshuCharacterCell: View {
       }
       .minimumScaleFactor(0.6)
       .lineLimit(1)
-      .frame(width: 52, height: 74)
+      .frame(width: Self.width, height: 74)
+      .contentShape(Rectangle())
       .background(
         InkCard(
           cornerRadius: 14,
@@ -320,19 +338,18 @@ private struct YomiRenshuCharacterCell: View {
   }
 }
 
-/// モンスターの画像を白いカードに載せて見せる。読み込みが終わるまでは ProgressView を出す。
+/// モンスターの画像を白いカードに載せて見せる。
+///
+/// 画像の読み込みは、取れるまで間隔を空けて取り直す ずかん の `PokemonSpriteView` に任せる。
 private struct PokemonSpriteCard: View {
   let pokemon: Pokemon?
   let imageCache: PokemonImageCache?
 
-  @State private var imageData: Data?
-
   var body: some View {
     ZStack {
-      if let imageData, let image = UIImage(data: imageData) {
-        Image(uiImage: image)
-          .resizable()
-          .scaledToFit()
+      if let pokemon {
+        // よみれんしゅう は ゲット の有無で見た目を変えないため、常にカラーで見せる
+        PokemonSpriteView(pokemon: pokemon, isCaught: true, imageCache: imageCache)
           .padding(10)
       } else {
         ProgressView()
@@ -343,14 +360,6 @@ private struct PokemonSpriteCard: View {
     .background(
       InkCard(cornerRadius: 26, fill: .white, borderWidth: 5, shadowOffset: 8)
     )
-    .task(id: pokemon?.id) {
-      imageData = nil
-      guard let pokemon, let imageCache else {
-        return
-      }
-
-      imageData = try? await imageCache.imageData(for: pokemon)
-    }
   }
 }
 

@@ -12,13 +12,22 @@ protocol SpeechSynthesizing: AnyObject {
 ///
 /// 読み上げ中に解放されると発話が止まるため、`AVSpeechSynthesizer` はプロパティとして保持し続ける。
 final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
+  /// 待たせている 1 回分の読み上げ。読み終わりの通知・時間切れが、どの発話に対するものかを見分けるために持つ。
+  private struct SpeakingRequest {
+    /// 発話を始めた順の通し番号。時間切れの Task が自分の発話かどうかを確かめるのに使う。
+    let generation: Int
+    let utterance: AVSpeechUtterance
+    let continuation: CheckedContinuation<Void, Never>
+    let timeoutTask: Task<Void, Never>
+  }
+
   /// `AVSpeechSynthesizerDelegate` が Sendable を要求する一方 `AVSpeechSynthesizer` は Sendable ではないため、
   /// 受け渡しの安全性はこのクラスの lock で担保していることを nonisolated(unsafe) で明示する。
   nonisolated(unsafe) private let synthesizer = AVSpeechSynthesizer()
-  /// 読み終わりの通知が発話とは別のスレッドで届くため、continuation の受け渡しを直列化する。
+  /// 読み終わりの通知が発話とは別のスレッドで届くため、リクエストの受け渡しを直列化する。
   private let lock = NSLock()
-  private var continuation: CheckedContinuation<Void, Never>?
-  private var timeoutTask: Task<Void, Never>?
+  private var currentRequest: SpeakingRequest?
+  private var generationCounter = 0
 
   /// 子ども向けに少し高い声にする。1.0 が地声で、上げすぎると聞き取りにくくなるため小さめに振る。
   private static let pitchMultiplier: Float = 1.15
@@ -36,18 +45,30 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     utterance.pitchMultiplier = Self.pitchMultiplier
 
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      // 前の発話を先に終わらせてから登録することで、遅れて届く didCancel や時間切れが新しい発話に効かないようにする
+      stopCurrentSpeaking()
+
       lock.lock()
-      self.continuation = continuation
+      generationCounter += 1
+      let generation = generationCounter
       lock.unlock()
 
-      startTimeout(characterCount: text.count)
+      let timeoutTask = makeTimeoutTask(generation: generation, characterCount: text.count)
+      lock.lock()
+      currentRequest = SpeakingRequest(
+        generation: generation,
+        utterance: utterance,
+        continuation: continuation,
+        timeoutTask: timeoutTask
+      )
+      lock.unlock()
+
       synthesizer.speak(utterance)
     }
   }
 
   func stop() {
-    synthesizer.stopSpeaking(at: .immediate)
-    finishSpeaking()
+    stopCurrentSpeaking()
   }
 
   /// 読み終わりの通知が届かない環境でも先へ進めるための保険。
@@ -56,32 +77,45 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     .milliseconds(1000 + 700 * max(1, characterCount))
   }
 
-  private func startTimeout(characterCount: Int) {
+  private func makeTimeoutTask(generation: Int, characterCount: Int) -> Task<Void, Never> {
     let duration = Self.timeoutDuration(characterCount: characterCount)
-    let timeoutTask = Task { [weak self] in
+
+    return Task { [weak self] in
       try? await Task.sleep(for: duration)
       guard !Task.isCancelled else {
         return
       }
-      self?.finishSpeaking()
-    }
 
-    lock.lock()
-    self.timeoutTask = timeoutTask
-    lock.unlock()
+      self?.finishSpeaking { $0.generation == generation }
+    }
   }
 
-  /// 読み終わり・中断・時間切れのどれから呼ばれても 1 回だけ continuation を再開する。
-  private func finishSpeaking() {
+  /// 進行中の発話を止めて、待っている呼び出し元を返す。発話していない時に呼んでも何も起きない。
+  private func stopCurrentSpeaking() {
     lock.lock()
-    let continuation = self.continuation
-    self.continuation = nil
-    let timeoutTask = self.timeoutTask
-    self.timeoutTask = nil
+    let request = currentRequest
+    currentRequest = nil
     lock.unlock()
 
-    timeoutTask?.cancel()
-    continuation?.resume()
+    // 取り外してから止めることで、stopSpeaking が同期で届ける didCancel が次の発話に効かないようにする
+    synthesizer.stopSpeaking(at: .immediate)
+    request?.timeoutTask.cancel()
+    request?.continuation.resume()
+  }
+
+  /// 読み終わり・時間切れのどちらから呼ばれても 1 回だけ continuation を再開する。
+  /// 古い発話から遅れて届いた通知で次の発話を終わらせないよう、`isTarget` で対応を確かめてから再開する。
+  private func finishSpeaking(isTarget: (SpeakingRequest) -> Bool) {
+    lock.lock()
+    guard let request = currentRequest, isTarget(request) else {
+      lock.unlock()
+      return
+    }
+    currentRequest = nil
+    lock.unlock()
+
+    request.timeoutTask.cancel()
+    request.continuation.resume()
   }
 }
 
@@ -90,13 +124,13 @@ extension JapaneseSpeechSynthesizer: AVSpeechSynthesizerDelegate {
     _ synthesizer: AVSpeechSynthesizer,
     didFinish utterance: AVSpeechUtterance
   ) {
-    finishSpeaking()
+    finishSpeaking { $0.utterance === utterance }
   }
 
   func speechSynthesizer(
     _ synthesizer: AVSpeechSynthesizer,
     didCancel utterance: AVSpeechUtterance
   ) {
-    finishSpeaking()
+    finishSpeaking { $0.utterance === utterance }
   }
 }

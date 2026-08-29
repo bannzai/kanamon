@@ -49,6 +49,8 @@ final class YomiRenshuModel {
   private let sleep: @Sendable (Duration) async -> Void
   private let initialPokemonID: Int?
   private var playbackTask: Task<Void, Never>?
+  /// タップを受けた順の通し番号。読み終わりを待つ間に次のタップが来たかを見分けるのに使う。
+  private var tapGeneration = 0
 
   /// 1 音をはっきり聞かせるため、`AVSpeechUtterance` の既定 (0.5) より遅くする。
   private static let singleCharacterRate: Float = 0.4
@@ -150,6 +152,8 @@ final class YomiRenshuModel {
     }
 
     stop()
+    tapGeneration += 1
+    let generation = tapGeneration
     tipText = SimilarKatakana.tip(character: character.katakana)
     highlightedIndices = [index]
     markRead(katakana: character.katakana)
@@ -158,8 +162,8 @@ final class YomiRenshuModel {
     await speechSynthesizer.speak(text: String(character.katakana), rate: Self.singleCharacterRate)
     await highlightTask.value
 
-    // 待っている間に別の文字がタップされていたら、そちらのハイライトを消さない
-    if highlightedIndices == [index] {
+    // 待っている間に次のタップや ぜんぶ よむ が始まっていたら、そちらのハイライトを消さない
+    if generation == tapGeneration, highlightedIndices == [index] {
       highlightedIndices = []
     }
   }

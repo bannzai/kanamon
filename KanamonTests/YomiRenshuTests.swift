@@ -157,6 +157,37 @@ final class YomiRenshuTests: XCTestCase {
     XCTAssertEqual(model.currentPokemon?.japaneseName, "ミスモン")
   }
 
+  /// 同じ文字を続けてタップした時、先のタップの後始末で後のタップのハイライトを消さない。
+  func testTapKeepsLatestHighlightWhenEarlierTapFinishesLater() async throws {
+    let sleepGate = SleepGate()
+    let modelContext = try makeModelContext(names: ["テストモン"])
+    let model = YomiRenshuModel(
+      modelContext: modelContext,
+      repository: PokemonRepository(
+        modelContext: modelContext,
+        dataSource: UnavailablePokemonDataSource(),
+        pokemonIDs: [1]
+      ),
+      speechSynthesizer: SpeechSynthesizerStub(),
+      sleep: { _ in await sleepGate.wait() }
+    )
+    await model.load()
+
+    let earlierTap = Task { await model.tap(index: 0) }
+    await waitUntil(message: "1 回目のタップがハイライトの待ちに入らなかった") { sleepGate.waitingCount == 1 }
+    let laterTap = Task { await model.tap(index: 0) }
+    await waitUntil(message: "2 回目のタップがハイライトの待ちに入らなかった") { sleepGate.waitingCount == 2 }
+
+    sleepGate.releaseEarliest()
+    await earlierTap.value
+
+    XCTAssertEqual(model.highlightedIndices, [0])
+
+    sleepGate.releaseEarliest()
+    await laterTap.value
+    XCTAssertTrue(model.highlightedIndices.isEmpty)
+  }
+
   /// 画面に出す固定文言と見分け方は、子どもが読めるひらがな・カタカナと空白だけにする。
   func testFixedTextsUseOnlyKanaAndSpacing() throws {
     for text in YomiRenshuText.all {
@@ -171,6 +202,23 @@ final class YomiRenshuTests: XCTestCase {
 
   func testViewCanBeInstantiated() {
     XCTAssertNotNil(YomiRenshuView().body)
+  }
+
+  /// 条件が満たされるまで、他の Task に順番を譲りながら待つ。
+  ///
+  /// - Parameter message: 待っても条件が満たされなかった時に出す説明
+  private func waitUntil(message: String, condition: () -> Bool) async {
+    // 譲る回数の上限。タップが待ちに入るまでに必要な回数より十分多くし、
+    // 条件が満たされないまま無限に待たずにテストを失敗させる
+    for _ in 0..<1000 {
+      if condition() {
+        return
+      }
+
+      await Task.yield()
+    }
+
+    XCTFail(message)
   }
 
   private func makeModel(
@@ -241,6 +289,32 @@ private final class SpeechSynthesizerStub: SpeechSynthesizing {
 
   func stop() {
     stopCount += 1
+  }
+}
+
+/// 間を置く処理の代わりに使い、待っている Task をテストの好きな順番で先へ進めるスタブ。
+///
+/// 待ちは別の Task から積まれるため、溜めた continuation の受け渡しを lock で直列化する。
+private final class SleepGate: @unchecked Sendable {
+  private let lock = NSLock()
+  private var continuations: [CheckedContinuation<Void, Never>] = []
+
+  /// いま解放を待っている数。
+  var waitingCount: Int {
+    lock.withLock { continuations.count }
+  }
+
+  /// `releaseEarliest()` で解放されるまで返らない。
+  func wait() async {
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      lock.withLock { continuations.append(continuation) }
+    }
+  }
+
+  /// 待ちに入るのが早かったものから 1 つ解放する。待ちが無い時は何も起きない。
+  func releaseEarliest() {
+    let continuation = lock.withLock { continuations.isEmpty ? nil : continuations.removeFirst() }
+    continuation?.resume()
   }
 }
 
