@@ -53,7 +53,12 @@ struct HomeView: View {
       .background(Color(.systemGroupedBackground))
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
-        PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        switch destination {
+        case .zukan:
+          PokedexView()
+        case .yomiRenshu, .quiz:
+          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        }
       }
     }
   }
