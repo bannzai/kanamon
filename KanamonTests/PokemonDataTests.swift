@@ -15,7 +15,19 @@ final class PokemonDataTests: XCTestCase {
     XCTAssertEqual(KatakanaConverter.hiragana(from: hiragana), hiragana)
   }
 
-  func testPokeAPIClientFetchesJapaneseNameAndSpriteURLUsingMockedNetwork() async throws {
+  func testKatakanaCharacterNormalizerCombinesMarksAndSmallCharactersIntoBaseCharacters() {
+    XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ガ"), "カ")
+    XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ピ"), "ヒ")
+    XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ヴ"), "ウ")
+    XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ャ"), "ヤ")
+    XCTAssertEqual(KatakanaCharacterNormalizer.baseCharacter(from: "ッ"), "ツ")
+    XCTAssertEqual(
+      KatakanaCharacterNormalizer.baseCharacter(from: Character("カ\u{3099}")),
+      "カ"
+    )
+  }
+
+  func testPokeAPIClientFetchesJapaneseNameAndOfficialArtworkURLUsingMockedNetwork() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [MockURLProtocol.self]
     let session = URLSession(configuration: configuration)
@@ -23,9 +35,13 @@ final class PokemonDataTests: XCTestCase {
     MockURLProtocol.handler = { request in
       let data: Data
       if request.url?.path.contains("pokemon-species") == true {
-        data = Data(#"{"names":[{"name":"テストモン","language":{"name":"ja"}}]}"#.utf8)
+        data = Data(
+          #"{"names":[{"name":"サンプルン","language":{"name":"ja"}},{"name":"テストモン","language":{"name":"ja-hrkt"}}]}"#.utf8
+        )
       } else {
-        data = Data(#"{"id":1,"sprites":{"front_default":"https://example.com/test-sprite.png"}}"#.utf8)
+        data = Data(
+          #"{"id":1,"sprites":{"front_default":"https://example.com/sprite.png","other":{"official-artwork":{"front_default":"https://example.com/official.png"}}}}"#.utf8
+        )
       }
       let response = HTTPURLResponse(
         url: try XCTUnwrap(request.url),
@@ -41,7 +57,49 @@ final class PokemonDataTests: XCTestCase {
 
     XCTAssertEqual(pokemon.id, 1)
     XCTAssertEqual(pokemon.japaneseName, "テストモン")
-    XCTAssertEqual(pokemon.spriteURL.absoluteString, "https://example.com/test-sprite.png")
+    XCTAssertEqual(pokemon.spriteURL.absoluteString, "https://example.com/official.png")
+  }
+
+  @MainActor
+  func testLearningProgressPersistsNormalizedCharactersAndCaughtPokemonIdempotently() throws {
+    let container = try makeContainer()
+    let store = LearningProgressStore(modelContext: ModelContext(container))
+
+    try store.markPokemonCaught(id: 7)
+    try store.markPokemonCaught(id: 7)
+    try store.markRead(character: "ガ")
+    try store.markRead(character: "カ")
+    try store.markRead(character: "ャ")
+    try store.markWritten(character: "ピ")
+    try store.markWritten(character: "ピ")
+
+    let reloadedStore = LearningProgressStore(modelContext: ModelContext(container))
+    XCTAssertEqual(try reloadedStore.caughtPokemonIDs(), [7])
+    XCTAssertEqual(try reloadedStore.readCharacters(), ["カ", "ヤ"])
+    XCTAssertEqual(try reloadedStore.writtenCharacters(), ["ヒ"])
+  }
+
+  func testPokemonCharacterSearchUsesNormalizedCharacters() {
+    let pokemon = [
+      Pokemon(
+        id: 1,
+        japaneseName: "ガクモン",
+        spriteURL: URL(string: "https://example.com/1.png")!
+      ),
+      Pokemon(
+        id: 2,
+        japaneseName: "ャリモン",
+        spriteURL: URL(string: "https://example.com/2.png")!
+      ),
+      Pokemon(
+        id: 3,
+        japaneseName: "ミスモン",
+        spriteURL: URL(string: "https://example.com/3.png")!
+      ),
+    ]
+
+    XCTAssertEqual(PokemonCharacterSearch.pokemon(containing: "カ", in: pokemon).map(\.id), [1])
+    XCTAssertEqual(PokemonCharacterSearch.pokemon(containing: "ヤ", in: pokemon).map(\.id), [2])
   }
 
   @MainActor
@@ -206,10 +264,40 @@ final class PokemonDataTests: XCTestCase {
     XCTAssertEqual(requestCount, 1)
   }
 
+  func testKanjiVGCacheDownloadsUnicodeFileOnMissAndReadsFileOnHit() async throws {
+    let directory = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("tmp", isDirectory: true)
+      .appendingPathComponent("KanjiVGCacheTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let expectedData = Data("<svg><path id=\"test-s1\" /></svg>".utf8)
+    let dataLoader = HTTPDataLoaderStub(data: expectedData)
+    let cache = try KanjiVGCache(
+      cacheDirectory: directory,
+      dataLoader: dataLoader,
+      baseURL: URL(string: "https://example.com/kanji/")!
+    )
+
+    let firstLoad = try await cache.strokeData(for: "ア")
+    let secondLoad = try await cache.strokeData(for: "ア")
+    let requestedURLs = await dataLoader.requestedURLs()
+
+    XCTAssertEqual(firstLoad, expectedData)
+    XCTAssertEqual(secondLoad, expectedData)
+    XCTAssertEqual(requestedURLs.map(\.absoluteString), ["https://example.com/kanji/030a2.svg"])
+    XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("030a2.svg").path))
+  }
+
   @MainActor
   private func makeContainer() throws -> ModelContainer {
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-    return try ModelContainer(for: PokemonCacheEntry.self, configurations: configuration)
+    return try ModelContainer(
+      for: PokemonCacheEntry.self,
+      CaughtPokemonEntry.self,
+      CharacterProgressEntry.self,
+      configurations: configuration
+    )
   }
 }
 
@@ -265,6 +353,7 @@ private actor HTTPDataLoaderStub: HTTPDataLoading {
   private let responseData: Data
   private let delayMilliseconds: Int
   private var requests = 0
+  private var urls: [URL] = []
 
   init(data: Data, delayMilliseconds: Int = 0) {
     responseData = data
@@ -273,6 +362,7 @@ private actor HTTPDataLoaderStub: HTTPDataLoading {
 
   func data(from url: URL) async throws -> (Data, URLResponse) {
     requests += 1
+    urls.append(url)
     if delayMilliseconds > 0 {
       try await ContinuousClock().sleep(for: .milliseconds(delayMilliseconds))
     }
@@ -287,6 +377,10 @@ private actor HTTPDataLoaderStub: HTTPDataLoading {
 
   func requestCount() -> Int {
     requests
+  }
+
+  func requestedURLs() -> [URL] {
+    urls
   }
 }
 
