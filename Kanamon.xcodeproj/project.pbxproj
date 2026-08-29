@@ -8,6 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		00570055A10FCBD8D16BDD33 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E985B158F0B7ADD8C5F040 /* ContentView.swift */; };
+		100000000000000000000001 /* KatakanaConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* KatakanaConverter.swift */; };
+		100000000000000000000002 /* PokeAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* PokeAPIClient.swift */; };
+		100000000000000000000003 /* PokemonData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* PokemonData.swift */; };
+		100000000000000000000004 /* PokemonImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* PokemonImageCache.swift */; };
+		100000000000000000000005 /* PokemonDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* PokemonDataTests.swift */; };
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
@@ -29,6 +34,11 @@
 
 /* Begin PBXFileReference section */
 		1E86DE89B322B207DB20372B /* KanamonTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = KanamonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000001 /* KatakanaConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KatakanaConverter.swift; sourceTree = "<group>"; };
+		200000000000000000000002 /* PokeAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokeAPIClient.swift; sourceTree = "<group>"; };
+		200000000000000000000003 /* PokemonData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonData.swift; sourceTree = "<group>"; };
+		200000000000000000000004 /* PokemonImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonImageCache.swift; sourceTree = "<group>"; };
+		200000000000000000000005 /* PokemonDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonDataTests.swift; sourceTree = "<group>"; };
 		29E985B158F0B7ADD8C5F040 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5D917AA35E42ED26847B6BB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
@@ -64,7 +74,11 @@
 			children = (
 				5D917AA35E42ED26847B6BB0 /* Assets.xcassets */,
 				29E985B158F0B7ADD8C5F040 /* ContentView.swift */,
+				200000000000000000000001 /* KatakanaConverter.swift */,
 				68710977607E0CDF1AED0580 /* KanamonApp.swift */,
+				200000000000000000000002 /* PokeAPIClient.swift */,
+				200000000000000000000003 /* PokemonData.swift */,
+				200000000000000000000004 /* PokemonImageCache.swift */,
 				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
 				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
 				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
@@ -76,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				D58492E064E64E689038BCB2 /* KanamonTests.swift */,
+				200000000000000000000005 /* PokemonDataTests.swift */,
 				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
 			);
 			path = KanamonTests;
@@ -174,6 +189,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */,
+				100000000000000000000005 /* PokemonDataTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -183,7 +199,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				00570055A10FCBD8D16BDD33 /* ContentView.swift in Sources */,
+				100000000000000000000001 /* KatakanaConverter.swift in Sources */,
 				9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */,
+				100000000000000000000002 /* PokeAPIClient.swift in Sources */,
+				100000000000000000000003 /* PokemonData.swift in Sources */,
+				100000000000000000000004 /* PokemonImageCache.swift in Sources */,
 				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
 				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
@@ -250,6 +270,11 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					AppIntents,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -314,6 +339,11 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					AppIntents,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
