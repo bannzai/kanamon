@@ -20,6 +20,10 @@ struct URLSessionDataLoader: HTTPDataLoading {
 
 /// スプライト画像を Caches ディレクトリへ保存し、同じ画像の再取得を避ける。
 actor PokemonImageCache {
+  /// 画面をまたいで同じキャッシュを使い回すための共有インスタンス。
+  /// Caches ディレクトリを解決できない環境では nil になる。
+  static let shared: PokemonImageCache? = try? PokemonImageCache()
+
   private let fileManager: FileManager
   private let cacheDirectory: URL
   private let dataLoader: any HTTPDataLoading

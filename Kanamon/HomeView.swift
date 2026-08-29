@@ -28,6 +28,12 @@ struct HomeMenuItem: Identifiable {
       title = "クイズ"
       systemImage = "star.fill"
       tint = Color(red: 0.33, green: 0.38, blue: 0.86)
+    case .mojiZukan:
+      title = "もじ ずかん"
+      systemImage = "character.book.closed.fill"
+      // デザイン仕様のピンク #FF9FC4 は白文字とのコントラスト比が 1.9 しかないため、
+      // 同系統で 4.5:1 を満たす濃いピンク #B0206A にする (`HomeViewTests` で検証する)。
+      tint = Color(red: 0.69, green: 0.125, blue: 0.416)
     }
   }
 
@@ -38,8 +44,11 @@ struct HomeMenuItem: Identifiable {
 ///
 /// 子どもが 1 人で迷わないよう、階層はホームと各画面の 2 段だけにする。
 struct HomeView: View {
+  /// もじ ずかんからよみれんしゅうへ送るなど、画面の中から遷移させるために経路を持つ。
+  @State private var path = NavigationPath()
+
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $path) {
       VStack(spacing: 20) {
         ForEach(HomeMenuItem.all) { item in
           NavigationLink(value: item.destination) {
@@ -47,13 +56,27 @@ struct HomeView: View {
           }
           .buttonStyle(.plain)
         }
+        #if DEBUG
+          NavigationLink("開発者オプション") {
+            DeveloperOptionsView()
+          }
+          .accessibilityIdentifier("debug_menu_link")
+        #endif
       }
       .padding(24)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       .background(Color(.systemGroupedBackground))
       .navigationTitle("カナモン")
       .navigationDestination(for: AppDestination.self) { destination in
-        PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        switch destination {
+        case .mojiZukan:
+          MojiZukanView(path: $path)
+        case .zukan, .yomiRenshu, .quiz:
+          PlaceholderView(title: HomeMenuItem(destination: destination).title)
+        }
+      }
+      .navigationDestination(for: MojiZukanYomiRenshuTarget.self) { _ in
+        PlaceholderView(title: MojiZukanText.yomiRenshu)
       }
     }
   }

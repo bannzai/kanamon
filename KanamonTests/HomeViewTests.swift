@@ -44,9 +44,15 @@ final class HomeViewTests: XCTestCase {
 }
 
 extension String {
-  /// ひらがな (U+3041-U+309F) とカタカナ (U+30A0-U+30FF。長音符「ー」を含む) だけで構成されているか。
+  /// ひらがな (U+3041-U+309F) とカタカナ (U+30A0-U+30FF。長音符「ー」を含む)、
+  /// および分かち書きの半角空白だけで構成されているか。
+  ///
+  /// 空白を許すのは、まだ単語の切れ目が分からない子ども向けに文言を分かち書きするため
+  /// (documents/design/README.md の文言がすべて分かち書きになっている)。
   fileprivate var isKanaOnly: Bool {
-    unicodeScalars.allSatisfy { (0x3041...0x309F).contains($0.value) || (0x30A0...0x30FF).contains($0.value) }
+    unicodeScalars.allSatisfy {
+      (0x3041...0x309F).contains($0.value) || (0x30A0...0x30FF).contains($0.value) || $0.value == 0x20
+    }
   }
 }
 

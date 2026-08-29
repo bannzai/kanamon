@@ -15,6 +15,11 @@
 		100000000000000000000005 /* PokemonDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* PokemonDataTests.swift */; };
 		100000000000000000000006 /* LearningProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* LearningProgress.swift */; };
 		100000000000000000000007 /* KanjiVGCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* KanjiVGCache.swift */; };
+		100000000000000000000008 /* GojuonTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* GojuonTable.swift */; };
+		100000000000000000000009 /* KanaSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* KanaSpeechSynthesizer.swift */; };
+		100000000000000000000010 /* MojiZukanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* MojiZukanView.swift */; };
+		100000000000000000000011 /* DeveloperOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* DeveloperOptionsView.swift */; };
+		100000000000000000000012 /* MojiZukanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* MojiZukanTests.swift */; };
 		5FDADC14501CFD1804454AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D917AA35E42ED26847B6BB0 /* Assets.xcassets */; };
 		779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D58492E064E64E689038BCB2 /* KanamonTests.swift */; };
 		9EB952128D9F7124E277A506 /* KanamonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68710977607E0CDF1AED0580 /* KanamonApp.swift */; };
@@ -43,6 +48,11 @@
 		200000000000000000000005 /* PokemonDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonDataTests.swift; sourceTree = "<group>"; };
 		200000000000000000000006 /* LearningProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningProgress.swift; sourceTree = "<group>"; };
 		200000000000000000000007 /* KanjiVGCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiVGCache.swift; sourceTree = "<group>"; };
+		200000000000000000000008 /* GojuonTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GojuonTable.swift; sourceTree = "<group>"; };
+		200000000000000000000009 /* KanaSpeechSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanaSpeechSynthesizer.swift; sourceTree = "<group>"; };
+		200000000000000000000010 /* MojiZukanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MojiZukanView.swift; sourceTree = "<group>"; };
+		200000000000000000000011 /* DeveloperOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperOptionsView.swift; sourceTree = "<group>"; };
+		200000000000000000000012 /* MojiZukanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MojiZukanTests.swift; sourceTree = "<group>"; };
 		29E985B158F0B7ADD8C5F040 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5D917AA35E42ED26847B6BB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68710977607E0CDF1AED0580 /* KanamonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanamonApp.swift; sourceTree = "<group>"; };
@@ -88,6 +98,10 @@
 				A17D3C0E5B24F1908E3A1101 /* AppDestination.swift */,
 				A17D3C0E5B24F1908E3A1102 /* HomeView.swift */,
 				A17D3C0E5B24F1908E3A1103 /* PlaceholderView.swift */,
+				200000000000000000000008 /* GojuonTable.swift */,
+				200000000000000000000009 /* KanaSpeechSynthesizer.swift */,
+				200000000000000000000010 /* MojiZukanView.swift */,
+				200000000000000000000011 /* DeveloperOptionsView.swift */,
 			);
 			path = Kanamon;
 			sourceTree = "<group>";
@@ -98,6 +112,7 @@
 				D58492E064E64E689038BCB2 /* KanamonTests.swift */,
 				200000000000000000000005 /* PokemonDataTests.swift */,
 				A17D3C0E5B24F1908E3A1104 /* HomeViewTests.swift */,
+				200000000000000000000012 /* MojiZukanTests.swift */,
 			);
 			path = KanamonTests;
 			sourceTree = "<group>";
@@ -197,6 +212,7 @@
 				779814B289C2C48CC0EDAE35 /* KanamonTests.swift in Sources */,
 				100000000000000000000005 /* PokemonDataTests.swift in Sources */,
 				B27E4D1F6C35029A9F4B2204 /* HomeViewTests.swift in Sources */,
+				100000000000000000000012 /* MojiZukanTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +231,10 @@
 				B27E4D1F6C35029A9F4B2201 /* AppDestination.swift in Sources */,
 				B27E4D1F6C35029A9F4B2202 /* HomeView.swift in Sources */,
 				B27E4D1F6C35029A9F4B2203 /* PlaceholderView.swift in Sources */,
+				100000000000000000000008 /* GojuonTable.swift in Sources */,
+				100000000000000000000009 /* KanaSpeechSynthesizer.swift in Sources */,
+				100000000000000000000010 /* MojiZukanView.swift in Sources */,
+				100000000000000000000011 /* DeveloperOptionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
