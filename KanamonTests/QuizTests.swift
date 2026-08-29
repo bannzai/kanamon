@@ -234,6 +234,43 @@ final class QuizTests: XCTestCase {
     XCTAssertEqual(model.result?.isNewCatch, false)
   }
 
+  /// 保存できないコンテキスト (読み取り専用で開いたストア) では、ゲットも読めた文字も未保存のまま残さず捨てる。
+  @MainActor
+  func testQuizModelDiscardsUnsavedChangesWhenSaveFails() async throws {
+    // メモリ内ストアは読み取り専用で開けないため、一時ファイルのストアを書き込み可で作ってから読み取り専用で開き直す
+    let storeURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("QuizTests-\(UUID().uuidString).store")
+    let schema = Schema([PokemonCacheEntry.self, CaughtPokemonEntry.self, CharacterProgressEntry.self])
+    _ = try ModelContainer(for: schema, configurations: ModelConfiguration(url: storeURL))
+    let container = try ModelContainer(
+      for: schema,
+      configurations: ModelConfiguration(url: storeURL, allowsSave: false)
+    )
+    let context = ModelContext(container)
+    let store = LearningProgressStore(modelContext: context)
+    let pokemons = (1...6).map(makePokemon(id:))
+    let model = QuizModel(
+      repository: PokemonRepository(
+        modelContext: ModelContext(try makeContainer()),
+        dataSource: QuizPokemonDataSourceStub(
+          pokemonByID: Dictionary(uniqueKeysWithValues: pokemons.map { ($0.id, $0) })
+        ),
+        pokemonIDs: pokemons.map(\.id)
+      ),
+      learningProgressStore: store,
+      imageCache: nil
+    )
+
+    await model.load()
+    let question = try XCTUnwrap(model.question)
+    model.answer(pokemon: question.answer)
+
+    XCTAssertEqual(model.result?.isNewCatch, false)
+    XCTAssertFalse(context.hasChanges, "保存に失敗した変更がコンテキストに残っています")
+    XCTAssertEqual(try store.caughtPokemonIDs(), [])
+    XCTAssertEqual(try store.readCharacters(), [])
+  }
+
   @MainActor
   func testQuizModelFailsWhenMetadataCannotBeLoaded() async throws {
     let context = ModelContext(try makeContainer())
