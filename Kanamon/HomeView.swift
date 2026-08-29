@@ -133,7 +133,9 @@ struct HomeView: View {
         switch destination {
         case .zukan:
           PokedexView()
-        case .yomiRenshu, .kakiRenshu, .quiz, .namaeZukuri, .mojiZukan:
+        case .quiz:
+          QuizView()
+        case .yomiRenshu, .kakiRenshu, .namaeZukuri, .mojiZukan:
           PlaceholderView(title: HomeMenuItem(destination: destination).title)
         }
       }
