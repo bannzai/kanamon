@@ -2,3 +2,8 @@
 tmp/
 xcuserdata/
 .envrc
+
+# デザインのプロトタイプ (実行するとポケモンの画像・名前が表示されるため public に置かない)
+# 実体はプロジェクトディレクトリの documents/design/prototype.html に置く
+# 参照: documents/adr/0001-pokemon-assets-testflight-personal-only.md
+documents/design/prototype.html

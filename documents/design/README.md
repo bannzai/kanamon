@@ -4,8 +4,9 @@ bannzai のフィードバック 3 点 (図鑑モチーフ / 学習になる UX 
 静止モックアップ (前版) は破棄し、**動くプロトタイプ 1 ファイル**を成果物とする。
 
 - 動くプロトタイプ: `documents/design/prototype.html` (ブラウザで開くだけで動作。ローカルサーバ不要)
-- プロトタイプにポケモンの画像・名前データは含まれない。実行時に PokeAPI から取得する
-  (素材をリポジトリに置かない方針は [ADR 0001](../adr/0001-pokemon-assets-testflight-personal-only.md) を参照)
+  - **このファイルは gitignore 済みで、リポジトリには含まれない**。実行するとポケモンの画像・名前が表示されるため、public リポジトリに置かない判断による ([ADR 0001](../adr/0001-pokemon-assets-testflight-personal-only.md) の「家庭内利用に限る」方針を、プロトタイプにも適用する)
+  - 実体はプロジェクトディレクトリ (`~/ghq/github.com/bannzai/kanamon/documents/design/prototype.html`) に置いてある。worktree からも同じパスを開けば参照できる
+  - ファイル自体にポケモンの画像・名前データは埋め込まれておらず、実行時に PokeAPI から取得する
 
 ## 1. デザインの土台: ポケモン図鑑モチーフ
 
