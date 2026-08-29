@@ -51,11 +51,14 @@ struct MojiZukanView: View {
   @Binding var path: NavigationPath
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
   @State private var model: MojiZukanModel?
   @State private var selection: MojiZukanSelection?
 
   var body: some View {
     VStack(spacing: 14) {
+      header
+
       if let model {
         progressCard(model: model)
         gojuonCard(model: model)
@@ -64,14 +67,15 @@ struct MojiZukanView: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
     }
-    .padding(16)
+    .padding(20)
     // iPad では横に引き伸ばさず中央寄せにする (documents/design/README.md「7. iPad での拡大方針」)。
     // 引き伸ばすと 5 列の各セルが極端に横長になり、文字を追いにくくなる。
     .frame(maxWidth: PokedexLayout.maximumScreenWidth)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // NavigationStack は自前の地の色 (白) を敷くため、画面ごとに地の色を塗り直す。
+    // クイズ画面と同じく、確定デザインの画面ごとの地の色を使う
     .background(MojiZukanColor.background)
-    .navigationTitle(MojiZukanText.title)
-    .navigationBarTitleDisplayMode(.inline)
+    .toolbar(.hidden, for: .navigationBar)
     .navigationDestination(for: YomiRenshuDestination.self) { _ in
       // よみれんしゅう (issue #6) ができるまでの仮画面。#6 でポケモン ID を受け取る画面に差し替える
       PlaceholderView(title: MojiZukanText.yomiRenshu)
@@ -96,6 +100,20 @@ struct MojiZukanView: View {
         )
       }
     }
+  }
+
+  private var header: some View {
+    HStack(spacing: 12) {
+      PokedexBackButton { dismiss() }
+
+      Text(MojiZukanText.title)
+        .font(.system(size: 30, weight: .black, design: .rounded))
+        .foregroundStyle(DesignColor.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .frame(height: 64)
   }
 
   private func progressCard(model: MojiZukanModel) -> some View {
@@ -143,7 +161,7 @@ struct MojiZukanView: View {
             } label: {
               GojuonCell(character: character, isRead: model.isRead(character))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
           } else {
             Color.clear.frame(minHeight: 62)
           }
@@ -247,7 +265,7 @@ private struct CharacterPokemonSheet: View {
               } label: {
                 row
               }
-              .buttonStyle(.plain)
+              .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
             } else {
               row
             }
@@ -319,7 +337,7 @@ private struct CharacterPokemonSheet: View {
           .frame(width: 60, height: 60)
           .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(PokedexPressButtonStyle(pressOffset: 5))
       .accessibilityLabel(MojiZukanText.close)
     }
     .foregroundStyle(DesignColor.ink)
@@ -391,8 +409,10 @@ private struct MojiZukanNote: View {
 #Preview {
   @Previewable @State var path = NavigationPath()
 
-  NavigationStack(path: $path) {
-    MojiZukanView(path: $path)
+  PokedexDeviceFrame {
+    NavigationStack(path: $path) {
+      MojiZukanView(path: $path)
+    }
   }
   .modelContainer(PersistenceController(isStoredInMemoryOnly: true).container)
 }

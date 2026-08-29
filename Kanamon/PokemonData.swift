@@ -42,6 +42,12 @@ struct PersistenceController {
   }
 }
 
+/// アプリが扱うポケモンの図鑑番号の範囲を表す。ずかんの総数と取得対象をここから参照する。
+enum PokemonCatalog {
+  /// 第 1 世代の図鑑番号。MVP は 151 匹から始める (documents/PROJECT.md「MVP 機能」)
+  static let firstGenerationIDs = Array(1...151)
+}
+
 /// PokeAPI からポケモンのメタデータを取得するデータソースを表す。
 protocol PokemonDataSource: Sendable {
   func fetchPokemon(id: Int) async throws -> Pokemon
@@ -82,7 +88,7 @@ final class PokemonRepository {
   init(
     modelContext: ModelContext,
     dataSource: any PokemonDataSource = PokeAPIClient(),
-    pokemonIDs: [Int] = Array(1...151),
+    pokemonIDs: [Int] = PokemonCatalog.firstGenerationIDs,
     maximumConcurrentRequests: Int = 8
   ) {
     self.modelContext = modelContext

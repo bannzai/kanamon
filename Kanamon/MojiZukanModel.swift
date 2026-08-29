@@ -37,19 +37,19 @@ final class MojiZukanModel {
     self.imageCache = imageCache
   }
 
-  /// 五十音表に並ぶ 46 文字のうち、読めた文字の数。
+  /// 五十音表に並ぶ 46 文字のうち、読めた文字の数。長音符など表に無い文字は数えない。
   var readCount: Int {
-    GojuonTable.readCount(readCharacters: readCharacters)
+    readCharacters.filter(KatakanaGojuon.characterSet.contains).count
   }
 
   /// 読めた文字の数と 46 文字を「12 / 46」の形で返す。
   var progressText: String {
-    "\(readCount) / \(GojuonTable.characters.count)"
+    "\(readCount) / \(KatakanaGojuon.characters.count)"
   }
 
   /// 進捗バーの塗り幅に使う 0〜1 の割合。
   var progressFraction: Double {
-    Double(readCount) / Double(GojuonTable.characters.count)
+    Double(readCount) / Double(KatakanaGojuon.characters.count)
   }
 
   func isRead(_ character: Character) -> Bool {

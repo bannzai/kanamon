@@ -6,13 +6,14 @@ import XCTest
 @testable import Kanamon
 
 final class MojiZukanTests: XCTestCase {
-  func testGojuonTableHasFortySixCharactersInTenRowsOfFiveColumns() {
+  /// 表に並ぶ文字は `KatakanaGojuon` を正とし、配置だけを `GojuonTable` が持つ。
+  func testGojuonTableLaysOutTheKatakanaGojuonInTenRowsOfFiveColumns() {
     XCTAssertEqual(GojuonTable.rows.count, 10)
     for row in GojuonTable.rows {
       XCTAssertEqual(row.count, GojuonTable.columnCount)
     }
-    XCTAssertEqual(GojuonTable.characters.count, 46)
-    XCTAssertEqual(Set(GojuonTable.characters).count, 46)
+    XCTAssertEqual(GojuonTable.cells.compactMap { $0 }, KatakanaGojuon.characters)
+    XCTAssertEqual(KatakanaGojuon.characters.count, 46)
   }
 
   /// ヤ行・ワ行のイ段・エ段は空きマスにして、表の形を崩さずに 46 文字を並べる。
@@ -21,14 +22,6 @@ final class MojiZukanTests: XCTestCase {
     XCTAssertEqual(GojuonTable.rows[9].map { $0.map(String.init) }, ["ワ", nil, "ヲ", nil, "ン"])
     XCTAssertEqual(GojuonTable.cells.count, 50)
     XCTAssertEqual(GojuonTable.cells.filter { $0 == nil }.count, 4)
-  }
-
-  /// 進捗の分子には五十音表に並ぶ 46 文字だけを数え、長音符などは数えない。
-  func testReadCountCountsOnlyCharactersOnTheTable() {
-    XCTAssertEqual(GojuonTable.readCount(readCharacters: []), 0)
-    XCTAssertEqual(GojuonTable.readCount(readCharacters: ["ア", "ン"]), 2)
-    XCTAssertEqual(GojuonTable.readCount(readCharacters: ["ア", "ー"]), 1)
-    XCTAssertEqual(GojuonTable.readCount(readCharacters: Set(GojuonTable.characters)), 46)
   }
 
   /// 濁点・半濁点・小書き文字を含む名前も、基底文字で逆引きできるようにする。
@@ -78,6 +71,29 @@ final class MojiZukanTests: XCTestCase {
     XCTAssertNotNil(MojiZukanView(path: .constant(NavigationPath())).body)
   }
 
+  /// 進捗の分子には五十音表に並ぶ 46 文字だけを数え、長音符などは数えない。
+  @MainActor
+  func testReadCountCountsOnlyCharactersOnTheGojuon() async throws {
+    let modelContext = ModelContext(PersistenceController(isStoredInMemoryOnly: true).container)
+    let learningProgressStore = LearningProgressStore(modelContext: modelContext)
+    try learningProgressStore.markRead(character: "ア")
+    try learningProgressStore.markRead(character: "ー")
+
+    let model = MojiZukanModel(
+      repository: PokemonRepository(
+        modelContext: modelContext,
+        dataSource: StubPokemonDataSource(),
+        pokemonIDs: []
+      ),
+      learningProgressStore: learningProgressStore,
+      imageCache: nil
+    )
+    await model.load()
+
+    XCTAssertEqual(model.readCount, 1)
+    XCTAssertEqual(model.progressText, "1 / 46")
+  }
+
   /// 逆引きシートは読み込みの完了より先に開けるため、読み込み後の一覧をモデル経由で見られるようにする。
   @MainActor
   func testModelExposesProgressAndReverseLookupAfterLoading() async throws {
@@ -99,6 +115,7 @@ final class MojiZukanTests: XCTestCase {
 
     XCTAssertEqual(model.state, .loaded)
     XCTAssertEqual(model.progressText, "1 / 46")
+    XCTAssertEqual(model.readCount, 1)
     XCTAssertTrue(model.isRead("ヒ"))
     XCTAssertEqual(model.pokemons(containing: "ヒ").map(\.id), [1])
     XCTAssertTrue(model.isCaught(model.pokemons[0]))

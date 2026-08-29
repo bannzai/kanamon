@@ -16,7 +16,9 @@
 
 - シミュレータビルド: `make build-ios` (ログは `./tmp/build.log` に保存し、全文を warning / error で検査する)
 - ユニットテスト: `make test` (sim-boot で解決した simulator 上で実行する)
-- 動作確認 (UI・挙動): sim-boot (`/sim-manager` skill) で起動した simulator へ `make ios` で install + launch する。UI 変更はスクリーンショットで描画を確認してから完了報告する
+- 動作確認 (UI・挙動): `/ios-simulator` skill を起点にする。本リポジトリは public のため、**simtunnel (GitHub Actions macOS Runner 上のリモート iOS Simulator) を通じて行う**。caller workflow は `.github/workflows/simulator-session.yml`
+  - Maestro E2E・XCUITest・`xcrun simctl` を伴う手順はリモート実行できないため、その場合のみローカル sim-boot (`/sim-manager`) で起動した simulator へ `make ios` で install + launch する (使い分けの詳細は `/ios-simulator` skill Phase 1)
+  - UI 変更はスクリーンショットで描画を確認してから完了報告する。ポケモンの画像が写るスクリーンショットは PR・issue に添付しない (`.claude/rules/pokemon-assets-no-commit.md`)
 - ポケモンのデータは実行時に PokeAPI から取得する構成のため、初回の動作確認はネットワーク接続のある状態で行う。素材ファイルを検証用にリポジトリへ置かない (`.claude/rules/pokemon-assets-no-commit.md`)
 
 <!-- ai-review-config begin -->
