@@ -9,8 +9,14 @@ enum AppDestination: String, CaseIterable, Hashable, Identifiable {
   case zukan
   /// 名前を大きく表示して読み方を練習する画面。
   case yomiRenshu
+  /// 名前の文字を書き順どおりになぞる画面。
+  case kakiRenshu
   /// 絵に対して名前を 4 択で答える画面。
   case quiz
+  /// 文字を並べて名前を組み立てる画面。
+  case namaeZukuri
+  /// 五十音表で読めた文字の埋まり具合を見る画面。
+  case mojiZukan
 
   var id: String { rawValue }
 }

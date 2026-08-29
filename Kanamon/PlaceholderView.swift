@@ -9,40 +9,37 @@ struct PlaceholderView: View {
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
-    VStack(spacing: 32) {
-      Spacer()
-      Text(title)
-        .font(.system(size: 44, weight: .heavy, design: .rounded))
-        .minimumScaleFactor(0.5)
-        .lineLimit(1)
-      Text("じゅんびちゅう")
-        .font(.system(size: 28, weight: .bold, design: .rounded))
-        .foregroundStyle(.secondary)
-      Spacer()
-      Button {
-        dismiss()
-      } label: {
-        Text("もどる")
-          .font(.system(size: 36, weight: .heavy, design: .rounded))
-          .foregroundStyle(.white)
-          .frame(maxWidth: .infinity, minHeight: 100)
-          .background(
-            Color(red: 0.45, green: 0.45, blue: 0.50),
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
-          )
+    VStack(spacing: 14) {
+      HStack(spacing: 12) {
+        PokedexBackButton { dismiss() }
+
+        Text(title)
+          .font(.system(size: 30, weight: .black, design: .rounded))
+          .foregroundStyle(DesignColor.ink)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .buttonStyle(.plain)
+      .frame(height: 64)
+
+      Spacer()
+
+      Text("じゅんびちゅう")
+        .font(.system(size: 30, weight: .black, design: .rounded))
+        .foregroundStyle(DesignColor.sandDark)
+
+      Spacer()
     }
-    .padding(24)
+    .padding(20)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color(.systemGroupedBackground))
-    .navigationTitle(title)
-    .navigationBarTitleDisplayMode(.inline)
+    .toolbar(.hidden, for: .navigationBar)
   }
 }
 
 #Preview {
-  NavigationStack {
-    PlaceholderView(title: "ずかん")
+  PokedexDeviceFrame {
+    NavigationStack {
+      PlaceholderView(title: "かきれんしゅう")
+    }
   }
 }
