@@ -101,6 +101,44 @@ final class SpeechSynthesizingTests: XCTestCase {
     XCTAssertTrue(secondFinished)
   }
 
+  /// 合成器が内部のロックを握ったまま別スレッドで読み終わりを届けている最中に speak しても、デッドロックしない。
+  ///
+  /// 実機の `AVSpeechSynthesizer` は内部ロックを握ったまま delegate を呼ぶため、こちらがロックを握ったまま
+  /// `speak` を呼ぶと互いに待ち合って固まる (ぜんぶ よむ 中に文字をタップすると watchdog に kill された)。
+  func testSpeakDoesNotDeadlockWhileSynthesizerDeliversEndOnAnotherThread() async {
+    let speaker = UtteranceSpeakerFake()
+    let synthesizer = JapaneseSpeechSynthesizer(synthesizer: speaker, stopOtherSpeech: {})
+
+    let first = Task { await synthesizer.speak(text: "ア", rate: Self.rate) }
+    await waitUntil(message: "1 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 1 }
+    // 別スレッドの closure へ渡すが、以降は参照の同一性の比較にしか使わないため Sendable でなくてよい
+    nonisolated(unsafe) let firstUtterance = speaker.spokenUtterances[0]
+
+    // 2 つ目の speak を受け取った時点で、別スレッドから 1 つ目の読み終わりを届け、届け終わるまで speak を返さない
+    // (合成器が内部ロックを握ったまま delegate を呼び、その完了を待つ振る舞いを模す)
+    let deliveredWithinTimeout = Locked(false)
+    speaker.onSpeak = { [weak synthesizer] utterance in
+      guard utterance !== firstUtterance else {
+        return
+      }
+      let delivered = DispatchSemaphore(value: 0)
+      DispatchQueue.global().async {
+        synthesizer?.utteranceDidEnd(firstUtterance)
+        delivered.signal()
+      }
+      deliveredWithinTimeout.value = delivered.wait(timeout: .now() + Self.observeTimeoutSeconds) == .success
+    }
+
+    let second = Task { await synthesizer.speak(text: "イ", rate: Self.rate) }
+    await waitUntil(message: "2 つ目の発話が合成器に渡らなかった") { speaker.spokenTexts.count == 2 }
+    await first.value
+
+    XCTAssertTrue(deliveredWithinTimeout.value, "読み終わりの通知がロック待ちで固まっている")
+
+    speaker.spokenUtterances.last.map { synthesizer.utteranceDidEnd($0) }
+    await second.value
+  }
+
   private func waitUntil(
     message: String,
     condition: @escaping () -> Bool
@@ -125,6 +163,8 @@ private final class UtteranceSpeakerFake: UtteranceSpeaking, @unchecked Sendable
   weak var delegate: (any AVSpeechSynthesizerDelegate)?
   /// 設定すると、発話を受け取った直後にその発話の読み終わりを返す。
   var endsUtteranceImmediately: ((AVSpeechUtterance) -> Void)?
+  /// 設定すると、発話を受け取った時に `speak` の中で同期的に呼ぶ (合成器が内部で行う処理を模す)。
+  var onSpeak: ((AVSpeechUtterance) -> Void)?
 
   var spokenUtterances: [AVSpeechUtterance] {
     lock.lock()
@@ -146,6 +186,7 @@ private final class UtteranceSpeakerFake: UtteranceSpeaking, @unchecked Sendable
     lock.lock()
     _spokenUtterances.append(utterance)
     lock.unlock()
+    onSpeak?(utterance)
     endsUtteranceImmediately?(utterance)
   }
 
@@ -155,5 +196,28 @@ private final class UtteranceSpeakerFake: UtteranceSpeaking, @unchecked Sendable
     defer { lock.unlock() }
     _stopCount += 1
     return true
+  }
+}
+
+/// テストの複数スレッドから読み書きする 1 つの値。
+private final class Locked<Value>: @unchecked Sendable {
+  private let lock = NSLock()
+  private var _value: Value
+
+  init(_ value: Value) {
+    _value = value
+  }
+
+  var value: Value {
+    get {
+      lock.lock()
+      defer { lock.unlock() }
+      return _value
+    }
+    set {
+      lock.lock()
+      defer { lock.unlock() }
+      _value = newValue
+    }
   }
 }

@@ -44,9 +44,14 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
   private let stopOtherSpeech: @MainActor () -> Void
   /// 読み終わりの通知が発話とは別のスレッドで届くため、リクエストの受け渡しを直列化する。
   ///
-  /// `stopSpeaking` が同じスレッドで同期的に届ける `didCancel` から `finishSpeaking` に入るため、
-  /// 取り外しから登録までを 1 度の lock 区間にできるよう再帰ロックにする。
-  private let lock = NSRecursiveLock()
+  /// この lock を握ったまま `synthesizer` の `speak` / `stopSpeaking` を呼んではいけない。
+  /// `AVSpeechSynthesizer` は内部のロックを握ったまま delegate (`didFinish` 等) を呼ぶため、
+  /// こちらが lock を握って内部ロックを待ち、向こうが内部ロックを握って `finishSpeaking` で lock を待つと
+  /// デッドロックになる (実機で ぜんぶ よむ 中に文字をタップすると watchdog に kill された)。
+  private let lock = NSLock()
+  /// `synthesizer` への `speak` / `stopSpeaking` の呼び出し順を、複数スレッドから呼ばれても崩さないための lock。
+  /// `lock` の外側でだけ取り、delegate からは取らない (delegate の待ちと重ねてデッドロックしないため)。
+  private let synthesizerLock = NSLock()
   private var currentRequest: SpeakingRequest?
   private var generationCounter = 0
   /// `stop()` が呼ばれた回数。`speak` がクイズ側の停止を待っている間に止められたかを、登録前に照合するために持つ。
@@ -82,6 +87,11 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
     await stopOtherSpeech()
 
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      // 前の発話を止めてから次を読む順番を、別スレッドの speak / stop と入れ違いにしないよう
+      // 合成器への呼び出しをまとめて直列化する
+      synthesizerLock.lock()
+      defer { synthesizerLock.unlock() }
+
       // 取り外しから登録までを 1 度の lock 区間で行い、並行して呼ばれた時に
       // currentRequest が上書きされて前の continuation が残らないようにする
       lock.lock()
@@ -100,8 +110,12 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
         continuation: continuation,
         timeoutTask: makeTimeoutTask(generation: generation, characterCount: text.count)
       )
-      synthesizer.speak(utterance)
       lock.unlock()
+
+      // 合成器の呼び出しは lock を出てから行う。前の発話を取り外した後なので、
+      // stopSpeaking が届ける didCancel は取り外し済みの発話のものとして finishSpeaking で無視される
+      synthesizer.stopSpeaking(at: .immediate)
+      synthesizer.speak(utterance)
 
       // 待たせていた呼び出し元を返すのは、その先の処理が lock 区間に入ってこないよう lock を出てから行う
       previousRequest?.timeoutTask.cancel()
@@ -141,24 +155,29 @@ final class JapaneseSpeechSynthesizer: NSObject, SpeechSynthesizing {
 
   /// 進行中の発話を止めて、待っている呼び出し元を返す。発話していない時に呼んでも何も起きない。
   private func stopCurrentSpeaking() {
+    synthesizerLock.lock()
+    defer { synthesizerLock.unlock() }
+
     lock.lock()
     stopCounter += 1
     let request = detachCurrentRequestWithLockHeld()
     lock.unlock()
 
+    // 合成器を止めるのは lock を出てから (lock を握ったまま合成器を呼ぶとデッドロックする。`lock` の説明を参照)
+    synthesizer.stopSpeaking(at: .immediate)
+
     request?.timeoutTask.cancel()
     request?.continuation.resume()
   }
 
-  /// 進行中の発話を取り外して止め、待たせている リクエスト を返す。
+  /// 進行中の発話を取り外して、待たせている リクエスト を返す。合成器は止めない。
   ///
-  /// `lock` を保持したまま呼ぶ。返したリクエストの後始末 (時間切れの取り消しと continuation の再開) は
-  /// 呼び出し元が lock を出てから行う。
+  /// `lock` を保持したまま呼ぶ。返したリクエストの後始末 (合成器の停止・時間切れの取り消し・continuation の再開) は
+  /// 呼び出し元が lock を出てから行う。先に取り外しておくことで、その後の stopSpeaking が届ける didCancel が
+  /// 次の発話に効かないようにする。
   private func detachCurrentRequestWithLockHeld() -> SpeakingRequest? {
     let request = currentRequest
     currentRequest = nil
-    // 取り外してから止めることで、stopSpeaking が同期で届ける didCancel が次の発話に効かないようにする
-    synthesizer.stopSpeaking(at: .immediate)
 
     return request
   }
