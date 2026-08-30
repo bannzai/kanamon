@@ -313,9 +313,10 @@ private struct YomiRenshuCharacterCell: View {
   let isHighlighted: Bool
   let action: () -> Void
 
-  /// セルの幅。指で確実に押せるよう 60pt 以上にしつつ、iPhone の横幅 (390 − 左右の余白 40 = 350) に
-  /// `WrappingRows` の間隔 8pt を挟んで 5 文字 (60 × 5 + 8 × 4 = 332) が 1 行で並ぶ大きさにする。
-  private static let width: CGFloat = 60
+  /// セルの幅。指で確実に押せる大きさを保ちつつ、iPhone 15 Pro の横幅 393pt から筐体 `PokedexDeviceFrame` の
+  /// 左右 12pt ずつと画面の余白 20pt ずつを引いた 329pt に、`WrappingRows` の間隔 8pt を挟んで
+  /// 5 文字 (58 × 5 + 8 × 4 = 322) が 1 行で並ぶ大きさにする。
+  private static let width: CGFloat = 58
 
   /// にている もじ は枠と影を赤にして、注意して見る文字だと分かるようにする。
   private var borderColor: Color {
